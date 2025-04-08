@@ -7,9 +7,9 @@ const Chart = () => {
     // Referencia al elemento canvas
     const canvasRef = useRef(null);
     const chartRef = useRef(null);
-    let width = 1200;
-    let height = 600;
-    const [pairSymbol, setPairSymbol] = useState('BTCUSDT');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    const [pairSymbol, setPairSymbol] = useState('ETHUSDT');
     const [interval, setInterval] = useState('4h');
     const [isLoading, setIsLoading] = useState(true);
     const [chartData, setChartData] = useState([]);

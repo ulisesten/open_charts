@@ -15,7 +15,7 @@ export const funGetCandleData = async (prm_symbol, prm_interval) => {
 
 
 export const funGenerateUrl = (symbol, interval) => {
-    return `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=1000`;
+    return `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
 };
 
 export const funFormatData = (rawData) => {
