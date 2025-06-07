@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CanvasDrawer } from './functions/fun.classes';
-import { funGenerateUrl, funFormatData } from './functions/fun.functions';
+import { ChartDrawer } from './functions/fun.classes';
+import { funGenerateUrl, funFormatData, funLiquidationDataUrl, funFormatLiquidationsData } from './functions/fun.functions';
 import '../shared/styles/style.shared_chart.css'
 
 const Chart = () => {
@@ -11,8 +11,10 @@ const Chart = () => {
     let height = window.innerHeight;
     const [pairSymbol, setPairSymbol] = useState('ETHUSDT');
     const [interval, setInterval] = useState('4h');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isOrdersLoading, setIsOrdersLoading] = useState(false);
     const [chartData, setChartData] = useState([]);
+    const [chartLiquidationsData, setChartLiquidationsData] = useState([]);
 
     const handleResize = () => {
         const canvas = canvasRef.current;
@@ -20,11 +22,7 @@ const Chart = () => {
           // Ajustar el tamaño del canvas al tamaño de la ventana
           canvas.width = window.innerWidth;
           canvas.height = window.innerHeight;
-    
-          // Opcional: Redibujar el contenido del canvas
-          //const ctx = canvas.getContext('2d');
-          //drawContent(ctx);
-          chartRef.current.drawLines()
+          chartRef.current.draw();
         }
       };
     
@@ -44,17 +42,44 @@ const Chart = () => {
         }
     };
 
+    const funGetLiquidationsData = async (prm_symbol) => {
+        setIsOrdersLoading(true);
+        const url = funLiquidationDataUrl(prm_symbol);
+    
+        try {
+            const response = await fetch(url);
+            const rawData = await response.json();
+            setChartLiquidationsData(funFormatLiquidationsData(rawData));
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+            setChartLiquidationsData([])
+        } finally {
+            setIsOrdersLoading(false);
+        }
+    
+    };
+
     // Cargar datos históricos al cambiar el símbolo o el intervalo
     useEffect(() => {
         funGetCandleData(pairSymbol, interval);
+        //funGetLimitOrdersData(pairSymbol);
     }, [pairSymbol, interval]);
 
     useEffect(() => {
+        //funGetLiquidationsData(pairSymbol);
+    }, [pairSymbol]);
+
+    useEffect(() => {
         if(!isLoading) {
-            const canvasDrawer = new CanvasDrawer(canvasRef);
-            chartRef.current = canvasDrawer;
+            const chartDrawer = new ChartDrawer(canvasRef);
+            chartRef.current = chartDrawer;
             chartRef.current.setData(chartData);
-            chartRef.current.drawLines();
+            chartRef.current.draw();
+        }
+
+        if(!isOrdersLoading) {
+            //chartRef.current.setLiquidationsData(chartLiquidationsData)
+            //console.log(chartLiquidationsData);
         }
 
     }, [chartData]);

@@ -1,11 +1,11 @@
-export class CanvasDrawer {
+export class ChartDrawer {
     /// new refactor
     data = [];
     DEBUG = true;
-    up_color = 'green';
-    down_color = 'red';
-    border_up_color = 'green';
-    border_down_color = 'red';
+    up_color = '#269ea6';
+    down_color = '#a8aec0';
+    border_up_color = '#269ea6';
+    border_down_color = '#a8aec0';
 
     min_price = 0;
     max_price = 0;
@@ -13,7 +13,7 @@ export class CanvasDrawer {
     height_scale = 0;
     candle_width = 0;
 
-    
+    background_color = '#141823';
 
     /// old
     horizontal_scale_positions = [];
@@ -34,12 +34,15 @@ export class CanvasDrawer {
 
     candle_positions = []
 
+    liquidations = [];
+    symbol = 'ETHUSDT';
+
     constructor(canvasRef) {
         this.canvas = canvasRef.current;
         this.ctx = this.canvas.getContext('2d');
 
         this.zoomLevel = 1;
-        this.panOffset = 0;
+        this.panOffset = -70;
         this.hoveredIndex = null;
         this.isDragging = false;
         this.lastX = 0;
@@ -47,6 +50,39 @@ export class CanvasDrawer {
 
     setData(data) {
         this.data = data;
+    }
+
+    setupWebSocket() {
+        const ws = new WebSocket(`wss://fstream.binance.com/ws/${this.symbol.toLowerCase()}@forceOrder`);
+    
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.e === "forceOrder") {
+            const liquidation = {
+              price: parseFloat(data.o.p),
+              side: data.o.S, // 'SELL' (liquidación larga) o 'BUY' (corta)
+              quantity: parseFloat(data.o.q),
+              time: data.E // Timestamp
+            };
+            console.log("WebSocket liq:", liquidation);
+            this.liquidations.push(liquidation);
+            this.drawHeatmap(); // Redibuja al recibir datos
+          }
+        };
+    
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+        };
+    }
+
+    calculateScales() {
+        this.max_price = Math.max(...this.data.map(d => d.high));
+        this.min_price = Math.min(...this.data.map(d => d.low));
+        this.priceRange = this.max_price - this.min_price;
+        
+        this.height_scale = (this.canvas.height * 0.9) / this.priceRange;
+        this.width_scale = this.canvas.width / this.data.length;
+        this.candle_width = this.width_scale * 0.8;
     }
   
     // Método para limpiar el canvas
@@ -107,12 +143,20 @@ export class CanvasDrawer {
         this.ctx.strokeRect(x, bodyTop, candle_width, bodyHeight);
     }
   
-    // Método para dibujar ambas líneas
-    drawLines() {
+    /// Método para dibujar ambas líneas
+    draw() {
+        this.calculateScales();
         this.clearCanvas();
-        this.setRect();
-        this.draw();
-        this.setupMouseEvents()
+        this.drawHeatmap();
+        this.drawChart();
+        this.setupMouseEvents();
+        //this.setupWebSocket();
+    }
+
+    update(){
+        this.clearCanvas();
+        this.drawHeatmap();
+        this.drawChart();
     }
 
     debug(message) {
@@ -123,27 +167,6 @@ export class CanvasDrawer {
         console.log(logMessage);
     }
 
-
-
-    setMinMaxScalePrice() {
-        //console.log('min price', this.min_price, 'max price', this.max_price);
-
-        this.min_price = Math.floor(this.min_price - (this.min_price * 0.1));
-        this.max_price = Math.floor(this.max_price + (this.max_price * 0.1));
-
-        this.min_price = this.min_price - (this.min_price % 100);
-        this.max_price = this.max_price - (this.max_price % 100);
-
-        //console.log('min price', this.min_price, 'max price', this.max_price);
-        //console.log('scale price hight', (this.max_price - this.min_price));
-    }
-        
-    setRect() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        //this.interval_width = this.width / 20;
-    }
-
     resetBuffers() {
         this.visible_timescale_lines = [];
         this.visible_pricescale_lines = []
@@ -152,13 +175,9 @@ export class CanvasDrawer {
         this.candle_positions = [];
     }
 
-    setMetricIntervalsV2() {
-
-    }
-
-    draw() {
+    drawChart() {
         this.resetBuffers();
-        this.clearCanvas();
+        //this.clearCanvas();
 
         // Verificar que hay datos
         if (!this.data || this.data.length === 0) {
@@ -166,21 +185,12 @@ export class CanvasDrawer {
             return;
         }
 
-        // Calcular factores de escala
-        this.max_price = Math.max(...this.data.map(d => d.high));
-        this.min_price = Math.min(...this.data.map(d => d.low));
-        const priceRange = this.max_price - this.min_price;
-        
-        this.debug(`Rango de precios: ${this.min_price} - ${this.max_price} (rango: ${priceRange})`);
+        const priceRange = this.priceRange;
 
         // Factor de escala para altura (dejar margen arriba y abajo)
         this.height_scale = (this.canvas.height * 0.9) / priceRange;
         this.width_scale = this.canvas.width / this.data.length;
         this.candle_width = this.width_scale * 0.8; // Ancho de la vela (80% del espacio disponible)
-
-        this.debug(`Escala vertical: ${this.height_scale}`);
-        this.debug(`Escala horizontal: ${this.width_scale}`);
-        this.debug(`Ancho de vela: ${this.candle_width}`);
 
         // Aplicar zoom y pan
         this.ctx.save();
@@ -210,6 +220,7 @@ export class CanvasDrawer {
 
         this.ctx.restore();
 
+        this.drawPriceScale();
         this.drawCrosshairLines();
 
         if (this.hoveredIndex !== null) {
@@ -217,139 +228,11 @@ export class CanvasDrawer {
         }
     }
 
-    setMetricIntervals() {
-        this.resetBuffers();
-
-        let visible = false;
-
-        this.min_price = this.data[0].high;
-        this.max_price = this.data[0].low;
-
-        /// TimeScale metrics
-        /// Index de la escala de tiempo
-        let i_time = 0;
-
-        for(let i = 0; i < this.data.length; i++) {
-
-            if( this.positions_per_interval_count >= this.points_per_time_interval )
-                this.positions_per_interval_count = 0;
-
-            /// Obteniendo Máximos
-            if( this.data[i].close > this.max_price ) {
-                this.max_price = this.data[i].high;
-            }
-
-            /// Obteniendo mínimos
-            if( this.data[i].close < this.min_price ) {
-                this.main_price = this.data[i].low;
-            }
-
-            /// Estableciendo lineas del timeScale
-            /// Cada escala tendrá 12 velas
-            const horiz_scale_positon = this.width - (i * (this.interval_width / 12));
-
-            /// Establece el rango visible de la escala de tiempo
-            if(horiz_scale_positon < this.width && horiz_scale_positon > 0)
-                visible = true;
-            
-            /** Solo se toma la posición 0 y se inserta una linea de cuadrícula
-             * las demás posisciones son para velas
-            */
-            if( this.positions_per_interval_count === 0 ) {
-
-                this.horizontal_scale_positions.push({ position: horiz_scale_positon, visible: visible });
-                if( visible )
-                    this.visible_timescale_lines.push(
-                        {
-                            data: this.data[i_time],
-                            index: i_time
-                        }
-                    )
-                
-                i_time++;
-            }
-
-            //let d = this.data[i];
-
-            /** Obteniendo velas visibles */
-            this.candle_positions.push({
-                position: horiz_scale_positon,
-                visible: visible
-            })
-
-            visible = false;
-            this.positions_per_interval_count++;
-        }
-
-        i_time = 0;
-
-
-        /// PriceScale metrics
-        this.setMinMaxScalePrice()
-
-        const scaleprice_height = this.max_price - this.min_price;
-        
-        this.interval_height = Math.floor(( scaleprice_height / this.height ));
-        this.pricescale_interval_count = Math.floor(scaleprice_height / this.interval_height)
-
-        console.log('Altura', scaleprice_height)
-        console.log('Altura intervalo', this.interval_height)
-        console.log('cantidad de escalas', this.pricescale_interval_count)
-        let scale_increment = Math.floor(scaleprice_height / this.pricescale_interval_count);
-        //scale_increment -= (scale_increment % 100);
-        let scale_price = this.min_price;
-
-        console.log('increment', scale_increment)
-
-        /// Recorre el alto de la escala de precios
-        for(let i = 0; i < this.data.length; i++) {
-
-            /// Calcula el precio que se convertirá en una métrica
-            const vert_scale_position = this.height - (i * this.interval_height)
-
-            /// Establece el rango visible de la escala de precios
-            if(vert_scale_position < this.height && vert_scale_position > 0 )
-                visible = true;
-
-            scale_price += scale_increment;
-
-            console.log(scale_price);
-            /// Almacena las métricas de precios
-            this.vertical_scale_positions.push({
-                position: vert_scale_position,
-                visible: visible,
-                price: scale_price
-            });
-
-            /// Almacena las métricas visibles de la escala de precios
-            if( visible ){
-                this.visible_pricescale_lines.push(
-                    {
-                        index: i
-                    }
-                )
-            }
-
-            let d = this.data[i];
-           
-            this.candle_positions[i].data =
-                {
-                    open: this.calcularAltura(d.open),
-                    close: this.calcularAltura(d.close),
-                    high: this.calcularAltura(d.high),
-                    low: this.calcularAltura(d.low)
-                }
-
-            //console.log(this.candle_positions[i].data)
-
-            visible = false;
-        }
-    }
-
     
     setupMouseEvents() {
         // Evento para detectar hover sobre velas
         this.canvas.addEventListener('mousemove', (e) => {
+            
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
@@ -368,7 +251,7 @@ export class CanvasDrawer {
             }
             
             // Redibujar el gráfico (incluyendo las nuevas líneas)
-            this.draw();
+            this.update();
         });
 
         // Iniciar arrastre
@@ -390,7 +273,8 @@ export class CanvasDrawer {
         // Zoom con rueda del mouse
         this.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            const zoomIntensity = 0.2;
+            
+            const zoomIntensity = 0.5;
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             
@@ -400,8 +284,10 @@ export class CanvasDrawer {
             
             // Ajustar pan para zoom centrado en el mouse
             this.panOffset = mouseX - (mouseX - this.panOffset) * (this.zoomLevel / oldZoom);
-            
-            this.draw();
+
+            this.debug(`offset: ${this.panOffset}`)
+
+            this.update();
         });
 
         // Evitar menú contextual
@@ -415,16 +301,11 @@ export class CanvasDrawer {
         const adjustedX = (mouseX - this.panOffset) / this.zoomLevel;
         const candleIndex = Math.floor(adjustedX / this.width_scale);
 
-        this.debug(`X ajustada: ${adjustedX}`)
-        this.debug(`X mouse: ${mouseX}`)
-        this.debug(`X offset: ${this.panOffset}`)
-        this.debug(`X candle index: ${candleIndex}`)
+        this.debug(`offset: ${this.panOffset}`)
         
         if (candleIndex >= 0 && candleIndex < this.data.length) {
             const candle = this.data[candleIndex];
             const x = (candleIndex * this.width_scale) + this.panOffset;
-
-            this.debug(`X x: ${x}`)
             
             // Calcular coordenadas Y de la vela
             const highY = this.canvas.height - (candle.high - this.min_price) * this.height_scale;
@@ -441,16 +322,75 @@ export class CanvasDrawer {
         } else {
             this.hoveredIndex = null;
         }
+
+        this.update();
+    }
+
+    drawPriceScale() {
+        this.ctx.save();
         
-        this.draw(); // Redibujar para mostrar cambios
+        // Texto del tooltip
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'left';
+        const optimalTickSize = this.calculateOptimalTickSize();
+        let price = this.calculateFloorPrice(optimalTickSize);
+        //price += optimalTickSize;
+
+        let i = 0;
+
+        while( price < this.max_price + 100) {
+            this.calculateFloorPrice();
+            price += optimalTickSize;
+            const y = Math.floor(this.canvas.height - (Math.floor(price) - this.min_price) * this.height_scale);
+            const x = this.canvas.width - 60;
+
+            this.ctx.fillText(`${Math.floor(price)}.00`, x, y );
+
+            i++;
+        }
+        
+        this.ctx.restore();
+    }
+
+    calculateOptimalTickSize() {
+        const maxTick = this.priceRange / this.pricescale_interval_count;
+        
+        // Valores estándar de ticks (1, 2, 5, 10, 20, 50, etc.)
+        const tickOptions = [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 
+                             0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+        
+        // Encontrar el primer valor mayor que minTick y menor que maxTick
+        for (let i = 0; i < tickOptions.length; i++) {
+            if (tickOptions[i] > maxTick - tickOptions[i]) {
+                return tickOptions[i];
+            }
+        }
+        
+        return Math.pow(10, Math.floor(Math.log10(maxTick)));
+    }
+
+
+    calculateFloorPrice() {
+        /* let mod = 10;
+        let size = this.min_price
+        do {
+            
+            size = size - (size % mod);
+            
+            mod*= 10;
+        }while((size % mod) % 2 == 0);
+        
+        return size; */
+        //console.log(this.min_price, Math.floor(this.min_price / 10) * 10)
+        return Math.floor(this.min_price / 10) * 10;
     }
 
     drawTooltip(candle, x, y) {
         this.ctx.save();
         
         // Fondo del tooltip
-        this.ctx.fillStyle = 'rgb(36, 35, 35)';
-        //this.ctx.fillRect(x - 100, y - 80, 220, 80);
+        this.ctx.fillStyle = this.background_color;
         this.ctx.fillRect( 4, 4, 220, 48);
         
         // Texto del tooltip
@@ -459,11 +399,6 @@ export class CanvasDrawer {
         this.ctx.textAlign = 'left';
         
         const date = new Date(candle.time).toLocaleString();
-        /* this.ctx.fillText(`Fecha: ${date}`, x - 90, y - 60);
-        this.ctx.fillText(`Apertura: ${candle.open.toFixed(2)}`, x - 90, y - 40);
-        this.ctx.fillText(`Máximo: ${candle.high.toFixed(2)}`, x - 90, y - 20);
-        this.ctx.fillText(`Mínimo: ${candle.low.toFixed(2)}`, x + 10, y - 40);
-        this.ctx.fillText(`Cierre: ${candle.close.toFixed(2)}`, x + 10, y - 20); */
 
         this.ctx.fillText(`Fecha: ${date}`, 5, 15);
         this.ctx.fillText(`Apertura: ${candle.open.toFixed(2)}`, 5, 30);
@@ -480,6 +415,7 @@ export class CanvasDrawer {
         
         const ctx = this.canvas.getContext('2d');
         const { x, y } = this.mousePosition;
+        const tooltip_x = this.canvas.width -120;
         
         ctx.save();
         
@@ -488,109 +424,90 @@ export class CanvasDrawer {
         ctx.lineWidth = 1;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; // Color blanco semitransparente
         
-        // Línea vertical
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, this.canvas.height);
-        ctx.stroke();
+        if(x < this.canvas.width - 60) {
+            // Línea vertical
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.canvas.height);
+            ctx.stroke();
+        }
         
         // Línea horizontal
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(this.canvas.width, y);
+        ctx.lineTo(this.canvas.width - 60, y);
         ctx.stroke();
         
         // Restaurar configuración
         ctx.setLineDash([]);
         ctx.restore();
+
+        const pointer_price = this.truncarADosDecimales(this.min_price + (this.canvas.height - y) / this.height_scale);
         
-        // Opcional: Dibujar coordenadas cerca del cursor
+        /// Opcional: Dibujar coordenadas cerca del cursor
+        ctx.fillStyle = '#1f1f1f';
+        ctx.fillRect(tooltip_x, y - 10, 60, 20);
         ctx.fillStyle = 'white';
-        ctx.fillRect(x + 10, y - 20, 60, 20);
-        ctx.fillStyle = 'black';
-        ctx.font = '10px Arial';
-        ctx.fillText(`(${x}, ${y})`, x + 15, y - 5);
-    }
-}
-
-
-class MouseEventsDetector {
-    constructor(element) {
-        // Elemento al que se asociarán los eventos
-        this.element = element || window;
-
-        // Estado para el arrastre (drag)
-        this.isDragging = false;
-        this.startX = 0;
-        this.startY = 0;
-
-        // Callbacks para los eventos
-        this.onScrollCallback = null;
-        this.onDragStartCallback = null;
-        this.onDragMoveCallback = null;
-        this.onDragEndCallback = null;
-
-        // Vincular los eventos
-        this._bindEvents();
+        ctx.font = '12px Arial';
+        ctx.fillText(`${pointer_price}`, tooltip_x + 8, y + 5);
     }
 
-    // Método para vincular los eventos al elemento
-    _bindEvents() {
-        // Evento de scroll
-        this.element.addEventListener('scroll', (event) => {
-            if (this.onScrollCallback) {
-                this.onScrollCallback(event);
-            }
+    truncarADosDecimales(num) {
+        return Math.floor(num * 100) / 100;
+    }
+
+
+    drawHeatmap() {
+        //this.clearCanvas();
+        //this.drawPriceGrid(); // Tu función para la cuadrícula de precios
+    
+        // Dibujar cada liquidación
+        this.liquidations.forEach((liq) => {
+          const y = this.priceToY(liq.price); // Mapear precio a coordenada Y
+          const x = this.timeToX(liq.time);   // Mapear tiempo a coordenada X
+          this.drawLiquidationMarker(x, y, liq.side, liq.quantity);
         });
-
-        // Eventos de arrastre (drag)
-        this.element.addEventListener('mousedown', (event) => {
-            this.isDragging = true;
-            this.startX = event.clientX;
-            this.startY = event.clientY;
-
-            if (this.onDragStartCallback) {
-                this.onDragStartCallback({ x: this.startX, y: this.startY });
-            }
-        });
-
-        this.element.addEventListener('mousemove', (event) => {
-            if (this.isDragging && this.onDragMoveCallback) {
-                const offsetX = event.clientX - this.startX;
-                const offsetY = event.clientY - this.startY;
-                this.onDragMoveCallback({ x: event.clientX, y: event.clientY, offsetX, offsetY });
-            }
-        });
-
-        this.element.addEventListener('mouseup', () => {
-            if (this.isDragging && this.onDragEndCallback) {
-                this.onDragEndCallback();
-            }
-            this.isDragging = false;
-        });
-
-        this.element.addEventListener('mouseleave', () => {
-            if (this.isDragging && this.onDragEndCallback) {
-                this.onDragEndCallback();
-            }
-            this.isDragging = false;
-        });
+    
+        //this.drawAxisLabels(); // Etiquetas de ejes
+    }
+    
+    // 3. Dibujar marcadores de liquidación (▲/▼)
+    drawLiquidationMarker(x, y, side, quantity) {
+        const size = Math.log(quantity + 1) * 8; // Tamaño proporcional al volumen
+        this.ctx.fillStyle = side === "SELL" ? "rgba(255, 165, 0, 0.8)" : "rgba(0, 191, 255, 0.8)";
+    
+        // Triángulo hacia arriba (BUY) o abajo (SELL)
+        this.ctx.beginPath();
+        if (side === "SELL") {
+          this.ctx.moveTo(x - size, y + size);
+          this.ctx.lineTo(x + size, y + size);
+          this.ctx.lineTo(x, y - size);
+        } else {
+          this.ctx.moveTo(x - size, y - size);
+          this.ctx.lineTo(x + size, y - size);
+          this.ctx.lineTo(x, y + size);
+        }
+        this.ctx.closePath();
+        this.ctx.fill();
+    }
+    
+    // 4. Métodos auxiliares (ajusta según tu implementación)
+    priceToY(price) {
+        return this.canvas.height - ((price - this.min_price) * this.priceScale);
     }
 
-    // Métodos para registrar callbacks
-    onScroll(callback) {
-        this.onScrollCallback = callback;
+    timeToX(timestamp) {
+        return ((timestamp - this.startTime) / (this.endTime - this.startTime)) * this.canvas.width;
     }
 
-    onDragStart(callback) {
-        this.onDragStartCallback = callback;
+    clearCanvas() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    onDragMove(callback) {
-        this.onDragMoveCallback = callback;
-    }
-
-    onDragEnd(callback) {
-        this.onDragEndCallback = callback;
+    // Función para mapear tiempo a posición X
+    timeToXPosition(time) {
+        const timeDiff = this.data[this.data.length - 1].time - this.data[0].time;
+        const position = ((time - this.data[0].time) / timeDiff) * this.canvas.width;
+        return position * this.zoomLevel + this.panOffset;
     }
 }
