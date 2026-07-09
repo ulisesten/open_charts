@@ -1,0 +1,41 @@
+# Reglas de desarrollo - open_charts
+
+## Arquitectura
+- `ChartDrawer` (`src/chart/ChartDrawer.js`) es el **único** orquestador con estado. Los renderers en `src/chart/rendering/` deben ser **funciones puras** `(state, ctx) => void` sin mutar `state`.
+- Toda configuración (URLs, colores, dimensiones, timings) vive en `src/chart/utils/constants.js` como `CHART_CONSTANTS` / `CHART_COLORS` / `CHART_DEFAULTS`. No hardcodear valores mágicos en renderers ni en `ChartDrawer`.
+- Lógica de datos (fetch/formato) en `src/chart/utils/api.js` y `src/chart/utils/format.js`. Lógica de escala en `src/chart/utils/scales.js`.
+
+## Render
+- Todo redibujado pasa por `requestDraw()` (rAF). Nunca llamar a `ctx.*` directamente desde handlers de eventos: llamar a `requestDraw()`.
+- Un único `requestAnimationFrame` pendiente a la vez (el guard `rafId` lo garantiza).
+- `render()` no muta estado (excepto el decremento del fade del tooltip que programa el siguiente frame).
+- Coordenadas consistentes: velas y ejes usan **`chartHeight`** (= `canvas.height - timeAxisHeight`), nunca `canvas.height` directo para Y de precio.
+
+## Eventos y lifecycle
+- `setupMouseEvents()` se llama **una sola vez** por instancia. Guardar handlers en `boundHandlers` para poder removerlos en `teardownMouseEvents()`.
+- Todo cleanup (WS, timers, rAF, listeners) se centraliza en `destroy()`.
+- El componente React llama a `destroy()` en el cleanup del effect.
+
+## WebSocket
+- Reconexión vía `wsReconnectTimer`; `closeWebSocket()` cancela el timer y pone `onclose = null` para evitar reconexiones zombis.
+- `updateLastCandle(liq)` muta la última vela, recalcula escalas y pide redraw.
+
+## Estilo de código
+- Sin comentarios salvo que se pidan explícitamente.
+- Nombres en inglés para código; comentarios/docs pueden ir en español.
+- Sin emojis en el código.
+- Funciones puras y small en `rendering/` y `utils/`.
+- Preferir `const`/destructuring. Evitar clases monolíticas.
+
+## Verificación
+Antes de dar por terminada una tarea:
+```
+npx eslint --ext .js,.jsx src
+npx react-scripts build
+```
+0 errores de lint y build exitoso obligatorios. Warnings de `no-unused-vars` solo permitidos para setters reservados a features pendientes (panel de controles).
+
+## Pendientes conocidos
+- Panel de controles (símbolo/intervalo) usará `setPairSymbol`/`setIntervalValue`.
+- Heatmap definitivo requiere `candleIntervalMs` dinámico.
+- Al cambiar `pairSymbol`, idealmente no recrear `ChartDrawer` (usar `setData` + `setupWebSocket`).
