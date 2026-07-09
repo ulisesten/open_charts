@@ -1,3 +1,5 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -21,4 +23,5 @@ app.get('/liquidations', async (req, res) => {
   }
 });
 
-app.listen(8080, () => console.log('Proxy corriendo en puerto 8080'));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Proxy corriendo en puerto ${PORT}`));
