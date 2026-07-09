@@ -1,0 +1,87 @@
+.chart-wrapper {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    background-color: #272a30;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-main {
+    overflow: hidden;
+    position: relative;
+    background-color: #272a30;
+    flex: 0 0 auto;
+}
+
+.chart-sub {
+    overflow: hidden;
+    position: relative;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    flex: 0 0 auto;
+}
+
+.chart-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+.chart-resize-handle {
+    height: 4px;
+    width: 100%;
+    cursor: ns-resize;
+    background-color: #272a30;
+    flex: 0 0 4px;
+}
+
+.chart-resize-handle:hover {
+    background-color: #269ea6;
+}
+
+.chart-toolbar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    z-index: 10;
+    padding: 6px 10px;
+    background-color: rgba(20, 24, 35, 0.85);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: white;
+}
+
+.chart-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.chart-toolbar select {
+    background-color: #272a30;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+    outline: none;
+}
+
+.chart-toolbar select:hover {
+    border-color: #269ea6;
+}
+
+.chart-toolbar select:focus {
+    border-color: #269ea6;
+}

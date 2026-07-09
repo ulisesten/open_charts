@@ -1,103 +1,190 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { ChartDrawer } from './functions/fun.classes';
-import { funGenerateUrl, funFormatData, funLiquidationDataUrl, funFormatLiquidationsData } from './functions/fun.functions';
-import '../shared/styles/style.shared_chart.css'
+import { ChartDrawer, SMI_RENDER_STEPS } from './ChartDrawer';
+import { fetchKlines } from './utils/api';
+import {
+  drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
+} from './rendering';
+import { CHART_CONSTANTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
+import '../shared/styles/style.shared_chart.css';
+import './styles/style.chart.css';
+
+const MAIN_RENDER_STEPS = [
+  drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
+];
 
 const Chart = () => {
-    // Referencia al elemento canvas
+    const containerRef = useRef(null);
     const canvasRef = useRef(null);
+    const subCanvasRef = useRef(null);
+    const subContainerRef = useRef(null);
     const chartRef = useRef(null);
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    const [pairSymbol, setPairSymbol] = useState('ETHUSDT');
-    const [interval, setInterval] = useState('4h');
+    const subChartRef = useRef(null);
+    const [pairSymbol, setPairSymbol] = useState(CHART_CONSTANTS.DEFAULT_SYMBOL);
+    const [chartInterval, setIntervalValue] = useState(CHART_CONSTANTS.DEFAULT_INTERVAL);
     const [isLoading, setIsLoading] = useState(false);
-    const [isOrdersLoading, setIsOrdersLoading] = useState(false);
     const [chartData, setChartData] = useState([]);
-    const [chartLiquidationsData, setChartLiquidationsData] = useState([]);
+    const [subHeightVh, setSubHeightVh] = useState(15);
+    const draggingRef = useRef(false);
+
+    const sizeCanvas = (canvas, container) => {
+        if (!canvas || !container) return;
+        const rect = container.getBoundingClientRect();
+        canvas.width = Math.floor(rect.width);
+        canvas.height = Math.floor(rect.height);
+    };
 
     const handleResize = () => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          // Ajustar el tamaño del canvas al tamaño de la ventana
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-          chartRef.current.draw();
-        }
-      };
-    
-    // Función para obtener datos de velas
-    const funGetCandleData = async (prm_symbol, prm_interval) => {
-        setIsLoading(true);
-        const url = funGenerateUrl(prm_symbol, prm_interval);
-        try {
-            const response = await fetch(url);
-            const rawData = await response.json();
-            setChartData(funFormatData(rawData));
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            setChartData([]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const funGetLiquidationsData = async (prm_symbol) => {
-        setIsOrdersLoading(true);
-        const url = funLiquidationDataUrl(prm_symbol);
-    
-        try {
-            const response = await fetch(url);
-            const rawData = await response.json();
-            setChartLiquidationsData(funFormatLiquidationsData(rawData));
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            setChartLiquidationsData([])
-        } finally {
-            setIsOrdersLoading(false);
-        }
-    
-    };
-
-    // Cargar datos históricos al cambiar el símbolo o el intervalo
-    useEffect(() => {
-        funGetCandleData(pairSymbol, interval);
-        //funGetLimitOrdersData(pairSymbol);
-    }, [pairSymbol, interval]);
-
-    useEffect(() => {
-        //funGetLiquidationsData(pairSymbol);
-    }, [pairSymbol]);
-
-    useEffect(() => {
-        if(!isLoading) {
-            const chartDrawer = new ChartDrawer(canvasRef);
-            chartRef.current = chartDrawer;
-            chartRef.current.setData(chartData);
+        sizeCanvas(canvasRef.current, containerRef.current);
+        sizeCanvas(subCanvasRef.current, subContainerRef.current);
+        if (chartRef.current) {
+            chartRef.current.calculateScales();
             chartRef.current.draw();
         }
-
-        if(!isOrdersLoading) {
-            //chartRef.current.setLiquidationsData(chartLiquidationsData)
-            //console.log(chartLiquidationsData);
+        if (subChartRef.current) {
+            subChartRef.current.calculateScales();
+            subChartRef.current.draw();
         }
+    };
 
-    }, [chartData]);
+    const loadCandleData = async (symbol, timeInterval) => {
+        setIsLoading(true);
+        const data = await fetchKlines(symbol, timeInterval);
+        setChartData(data);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        loadCandleData(pairSymbol, chartInterval);
+    }, [pairSymbol, chartInterval]);
+
+    useEffect(() => {
+        if (isLoading || chartData.length === 0) return;
+        if (!canvasRef.current || !subCanvasRef.current) return;
+
+        sizeCanvas(canvasRef.current, containerRef.current);
+        sizeCanvas(subCanvasRef.current, subContainerRef.current);
+
+        const drawer = new ChartDrawer(canvasRef, {
+            renderSteps: MAIN_RENDER_STEPS,
+            timeAxisHeight: 0,
+            leftAxisWidth: 50,
+        });
+        chartRef.current = drawer;
+        drawer.setupMouseEvents();
+        drawer.setData(chartData);
+
+        const sub = new ChartDrawer(subCanvasRef, {
+            renderSteps: SMI_RENDER_STEPS,
+            lockedX: true,
+            smi: true,
+            adx: true,
+            rightIndicator: 'smi',
+            leftIndicator: 'adx',
+            leftAxisWidth: 50,
+            timeAxisHeight: 25,
+        });
+        subChartRef.current = sub;
+        sub.setupMouseEvents();
+        sub.setData(chartData);
+        sub.applyXTransform(drawer.getPanX(), drawer.getZoomX());
+
+        drawer.addXTransformListener((pan, zoom) => sub.applyXTransform(pan, zoom));
+        sub.addXTransformListener((pan, zoom) => drawer.applyXTransform(pan, zoom));
+        drawer.addCrosshairListener((pts) => sub.setSyncedCrosshair(pts));
+        sub.addCrosshairListener((pts) => drawer.setSyncedCrosshair(pts));
+        drawer.addKlineListener((kline) => sub.updateLastCandle(kline));
+
+        drawer.setupWebSocket(pairSymbol, chartInterval);
+        if (typeof window !== 'undefined') window.__drawer = drawer;
+
+        return () => {
+            drawer.destroy();
+            sub.destroy();
+            chartRef.current = null;
+            subChartRef.current = null;
+        };
+    }, [chartData, isLoading]);
 
     useEffect(() => {
         window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        const onMove = (e) => {
+            if (!draggingRef.current) return;
+            const vh = window.innerHeight;
+            const newSubVh = Math.max(5, Math.min(40, (vh - e.clientY) / vh * 100));
+            setSubHeightVh(newSubVh);
+        };
+        const onUp = () => { draggingRef.current = false; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
         return () => {
-            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
         };
     }, []);
 
+    useEffect(() => {
+        sizeCanvas(canvasRef.current, containerRef.current);
+        sizeCanvas(subCanvasRef.current, subContainerRef.current);
+        if (chartRef.current) {
+            chartRef.current.calculateScales();
+            chartRef.current.draw();
+        }
+        if (subChartRef.current) {
+            subChartRef.current.calculateScales();
+            subChartRef.current.draw();
+        }
+    }, [subHeightVh]);
+
     return (
-    <canvas
-        ref={canvasRef}
-        width={width} // Ancho del canvas
-        height={height} // Alto del canvas
-        style={{ border: '1px solid gray' }} // Estilo opcional para visualizar el canvas
-    />
+        <div className="chart-wrapper">
+            <div className="chart-toolbar">
+                <label>
+                    Símbolo
+                    <select
+                        value={pairSymbol}
+                        onChange={(e) => setPairSymbol(e.target.value)}
+                    >
+                        {CHART_SYMBOLS.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    Intervalo
+                    <select
+                        value={chartInterval}
+                        onChange={(e) => setIntervalValue(e.target.value)}
+                    >
+                        {CHART_INTERVALS.map((i) => (
+                            <option key={i} value={i}>{i}</option>
+                        ))}
+                    </select>
+                </label>
+            </div>
+            <div
+                ref={containerRef}
+                className="chart-main"
+                style={{ height: `calc(100vh - ${subHeightVh}vh - 4px)` }}
+            >
+                <canvas ref={canvasRef} className="chart-canvas" />
+            </div>
+            <div
+                className="chart-resize-handle"
+                onMouseDown={(e) => { e.preventDefault(); draggingRef.current = true; }}
+            />
+            <div
+                ref={subContainerRef}
+                className="chart-sub"
+                style={{ height: `${subHeightVh}vh` }}
+            >
+                <canvas ref={subCanvasRef} className="chart-canvas" />
+            </div>
+        </div>
     );
 };
 
