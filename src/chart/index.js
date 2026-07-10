@@ -107,23 +107,40 @@ const Chart = () => {
 
     useEffect(() => {
         window.addEventListener('resize', handleResize);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+        }
         handleResize();
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+            }
+        };
     }, []);
 
     useEffect(() => {
         const onMove = (e) => {
             if (!draggingRef.current) return;
-            const vh = window.innerHeight;
-            const newSubVh = Math.max(5, Math.min(40, (vh - e.clientY) / vh * 100));
+            if (e.cancelable) e.preventDefault();
+            const clientY = e.clientY != null ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : null);
+            if (clientY == null) return;
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            const newSubVh = Math.max(5, Math.min(40, (vh - clientY) / vh * 100));
             setSubHeightVh(newSubVh);
         };
         const onUp = () => { draggingRef.current = false; };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onUp);
+        window.addEventListener('touchcancel', onUp);
         return () => {
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+            window.removeEventListener('touchcancel', onUp);
         };
     }, []);
 
@@ -169,13 +186,14 @@ const Chart = () => {
             <div
                 ref={containerRef}
                 className="chart-main"
-                style={{ height: `calc(100vh - ${subHeightVh}vh - 4px)` }}
+                style={{ height: `calc(100dvh - ${subHeightVh}vh - 4px)` }}
             >
                 <canvas ref={canvasRef} className="chart-canvas" />
             </div>
             <div
                 className="chart-resize-handle"
                 onMouseDown={(e) => { e.preventDefault(); draggingRef.current = true; }}
+                onTouchStart={(e) => { e.preventDefault(); draggingRef.current = true; }}
             />
             <div
                 ref={subContainerRef}

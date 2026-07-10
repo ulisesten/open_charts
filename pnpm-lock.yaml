@@ -32,6 +32,10 @@ importers:
       web-vitals:
         specifier: ^2.1.4
         version: 2.1.4
+    devDependencies:
+      eslint:
+        specifier: 8.57.1
+        version: 8.57.1
 
 packages:
 

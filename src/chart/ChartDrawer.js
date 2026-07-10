@@ -625,6 +625,181 @@ export class ChartDrawer {
       contextmenu: onContext,
       beforeunload: onBeforeUnload,
     };
+
+    this._setupTouchEvents(onMouseDown, onMouseUp, onMouseMove);
+  }
+
+  _setupTouchEvents(onMouseDown, onMouseUp, onMouseMove) {
+    if (this.boundHandlers._touchRegistered) return;
+    this.boundHandlers._touchRegistered = true;
+
+    this._pinchInitialDist = null;
+    this._pinchInitialZoom = 1;
+    this._pinchInitialPan = 0;
+    this._pinchCenter = null;
+
+    const toCanvasCoords = (touch) => {
+      const rect = this.canvas.getBoundingClientRect();
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    };
+
+    const onTouchStart = (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const { x, y } = toCanvasCoords(e.touches[0]);
+        const fakeEvent = { button: 0, clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+        onMouseDown(fakeEvent);
+        this.detectHoveredCandle(x, y);
+        this.updateCrosshairPoints(x, y);
+      } else if (e.touches.length === 2) {
+        this.isDragging = false;
+        this.dragMode = null;
+        const t0 = toCanvasCoords(e.touches[0]);
+        const t1 = toCanvasCoords(e.touches[1]);
+        const cx = (t0.x + t1.x) / 2;
+        const cy = (t0.y + t1.y) / 2;
+        this._pinchCenter = { x: cx, y: cy };
+        this._pinchInitialDist = Math.hypot(t0.x - t1.x, t0.y - t1.y);
+        this._pinchInitialZoom = this.zoomLevel;
+        this._pinchInitialPan = this.panOffset;
+        this._pinchInitialZoomY = this.zoomLevelY;
+        this._pinchInitialPanY = this.panOffsetY;
+        this._pinchInitialSmiZoomY = this.smiScale.zoomY;
+        this._pinchInitialSmiPanY = this.smiScale.panY;
+        this._pinchInitialAdxZoomY = this.adxScale.zoomY;
+        this._pinchInitialAdxPanY = this.adxScale.panY;
+      }
+      this.requestDraw();
+    };
+
+    const onTouchMove = (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const { x, y } = toCanvasCoords(e.touches[0]);
+
+        if (this.isZoomingY) {
+          this.applyVerticalZoom(y);
+        } else if (this.isDragging) {
+          const dx = x - this.lastX;
+          const dy = y - this.lastY;
+          this.lastX = x;
+          this.lastY = y;
+
+          if (this.dragMode === 'panSmiY') {
+            this.smiScale.panY += dy;
+          } else if (this.dragMode === 'panAdxY') {
+            this.adxScale.panY += dy;
+          } else {
+            this.panOffset += dx;
+            if (!this.isSubPanel) {
+              this.panOffsetY += dy;
+            }
+            if (!this._saveTimer) {
+              this._saveTimer = setTimeout(() => {
+                this._saveTimer = null;
+                this.saveState();
+              }, 1000);
+            }
+            this.notifyXTransform();
+          }
+        }
+      } else if (e.touches.length === 2) {
+        const t0 = toCanvasCoords(e.touches[0]);
+        const t1 = toCanvasCoords(e.touches[1]);
+        const newDist = Math.hypot(t0.x - t1.x, t0.y - t1.y);
+        const cx = (t0.x + t1.x) / 2;
+        const cy = (t0.y + t1.y) / 2;
+
+        if (!this._pinchInitialDist || !this._pinchCenter) {
+          this._pinchCenter = { x: cx, y: cy };
+          this._pinchInitialDist = Math.max(1, newDist);
+          this._pinchInitialZoom = this.zoomLevel;
+          this._pinchInitialPan = this.panOffset;
+          this._pinchInitialZoomY = this.zoomLevelY;
+          this._pinchInitialPanY = this.panOffsetY;
+          this._pinchInitialSmiZoomY = this.smiScale.zoomY;
+          this._pinchInitialSmiPanY = this.smiScale.panY;
+          this._pinchInitialAdxZoomY = this.adxScale.zoomY;
+          this._pinchInitialAdxPanY = this.adxScale.panY;
+          this.requestDraw();
+          return;
+        }
+
+        const scale = Math.max(0.01, newDist / this._pinchInitialDist);
+        const anchorRelX = this._pinchCenter.x - this.leftAxisWidth;
+        const anchorY = this._pinchCenter.y;
+        const deltaCx = cx - this._pinchCenter.x;
+        const deltaCy = cy - this._pinchCenter.y;
+
+        const onPriceAxis = this._pinchCenter.x >= this.canvas.width - this.rightAxisWidth;
+        const onLeftAxis = this._pinchCenter.x <= this.leftAxisWidth;
+
+        if (this.isSubPanel && (onPriceAxis || onLeftAxis)) {
+          const targetScale = onLeftAxis ? this.adxScale : this.smiScale;
+          const initialZoom = onLeftAxis ? this._pinchInitialAdxZoomY : this._pinchInitialSmiZoomY;
+          const initialPan = onLeftAxis ? this._pinchInitialAdxPanY : this._pinchInitialSmiPanY;
+          const newZoom = clampZoom(initialZoom * scale);
+          const realScale = newZoom / (initialZoom || 0.0001);
+          targetScale.zoomY = newZoom;
+          targetScale.panY = anchorY - (anchorY - initialPan) * realScale + deltaCy;
+        } else if (onPriceAxis) {
+          const newZoom = clampZoom(this._pinchInitialZoomY * scale);
+          const realScale = newZoom / (this._pinchInitialZoomY || 0.0001);
+          this.zoomLevelY = newZoom;
+          this.panOffsetY = anchorY - (anchorY - this._pinchInitialPanY) * realScale + deltaCy;
+        } else {
+          const newZoom = clampZoom(this._pinchInitialZoom * scale);
+          const realScale = newZoom / (this._pinchInitialZoom || 0.0001);
+          this.zoomLevel = newZoom;
+          this.panOffset = anchorRelX - (anchorRelX - this._pinchInitialPan) * realScale + deltaCx;
+          if (this.isSubPanel) this.calculateWidthScale();
+          this.notifyXTransform();
+          if (typeof window !== 'undefined' && window.__debugPinch) {
+            console.log('[pinch X]', { newZoom, panOffset: this.panOffset, scale, realScale, anchorRelX, initialPan: this._pinchInitialPan, deltaCx });
+          }
+        }
+      }
+      this.requestDraw();
+    };
+
+    const onTouchEnd = (e) => {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        const fakeEvent = { button: 0 };
+        onMouseUp(fakeEvent);
+        this._pinchInitialDist = null;
+        this._pinchInitialZoom = 1;
+        this._pinchInitialPan = 0;
+        this._pinchCenter = null;
+      } else if (e.touches.length === 1) {
+        const { x, y } = toCanvasCoords(e.touches[0]);
+        this.isDragging = true;
+        this.dragMode = 'panX';
+        this.lastX = x;
+        this.lastY = y;
+      }
+      this.requestDraw();
+    };
+
+    const onTouchCancel = () => {
+      this.isDragging = false;
+      this.isZoomingY = false;
+      this.dragMode = null;
+      this._pinchInitialDist = null;
+      this._pinchInitialZoom = 1;
+      this._pinchInitialPan = 0;
+      this._pinchCenter = null;
+      this.requestDraw();
+    };
+
+    this.canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    this.canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    this.canvas.addEventListener('touchcancel', onTouchCancel, { passive: false });
+    this.boundHandlers.touchstart = onTouchStart;
+    this.boundHandlers.touchmove = onTouchMove;
+    this.boundHandlers.touchend = onTouchEnd;
+    this.boundHandlers.touchcancel = onTouchCancel;
   }
 
   teardownMouseEvents() {
@@ -635,6 +810,12 @@ export class ChartDrawer {
     this.canvas.removeEventListener('wheel', this.boundHandlers.wheel);
     this.canvas.removeEventListener('contextmenu', this.boundHandlers.contextmenu);
     window.removeEventListener('beforeunload', this.boundHandlers.beforeunload);
+    if (this.boundHandlers._touchRegistered) {
+      this.canvas.removeEventListener('touchstart', this.boundHandlers.touchstart);
+      this.canvas.removeEventListener('touchmove', this.boundHandlers.touchmove);
+      this.canvas.removeEventListener('touchend', this.boundHandlers.touchend);
+      this.canvas.removeEventListener('touchcancel', this.boundHandlers.touchcancel);
+    }
     this.boundHandlers = {};
   }
 

@@ -79,10 +79,12 @@ Librería JS para charts de trading, estilo TradingView, manteniendo simplicidad
 - ADX con key level @ 23 (sólida)
 - Tooltip O/C/H/L coloreados por tendencia de vela
 - Interacción: drag X/Y, zoom horizontal/vertical (rueda), zoom vertical por drag en eje de precios, paneo Shift+rueda
+- Touch: 1 dedo = pan X/Y, 2 dedos = pinch zoom X/Y (ancla en centro inicial, `realScale` post-clamp)
 - Grid + ejes calculados sobre el rango **visible** (no solo sobre velas)
 - Crosshair y tooltip sincronizables entre paneles
 - Paneo/zoom persistente en localStorage; al cargar, siempre posiciona a la derecha (mantiene zoom guardado)
-- Canvas responsivo; sub-panel también ajusta zoom vertical al resize
+- Canvas responsivo (`100dvh`, `visualViewport.resize` en móvil); sub-panel también ajusta zoom vertical al resize
+- Proxy de liquidaciones configurado por `.env` (`PORT`)
 - Heatmap de liquidaciones (estructura lista)
 
 ## Verificación
