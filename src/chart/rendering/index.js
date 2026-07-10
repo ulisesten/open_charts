@@ -1,5 +1,6 @@
 export { drawGrid } from './drawGrid';
 export { drawCandles } from './drawCandles';
+export { drawVolumeProfile } from './drawVolumeProfile';
 export { drawMovingAverages } from './drawMovingAverages';
 export { drawPriceScale } from './drawPriceScale';
 export { drawTimeScale } from './drawTimeScale';

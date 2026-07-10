@@ -19,8 +19,8 @@ export const drawCandles = (state, ctx) => {
   const visibleCandleWidth = candleWidth * zoomLevel;
   const padding = (pixelsPerCandle - visibleCandleWidth) / 2;
 
-  const firstVisibleIdx = Math.max(0, Math.floor((plotLeft - panOffset) / pixelsPerCandle));
-  const lastVisibleIdx = Math.min(data.length - 1, Math.ceil((plotRight - panOffset) / pixelsPerCandle));
+  const firstVisibleIdx = Math.max(0, Math.ceil((-panOffset - padding - visibleCandleWidth) / pixelsPerCandle));
+  const lastVisibleIdx = Math.min(data.length - 1, Math.ceil((plotRight - panOffset - padding) / pixelsPerCandle));
 
   for (let i = firstVisibleIdx; i <= lastVisibleIdx; i++) {
     const x = plotLeft + panOffset + i * pixelsPerCandle + padding;

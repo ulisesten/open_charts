@@ -2,14 +2,14 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ChartDrawer, SMI_RENDER_STEPS } from './ChartDrawer';
 import { fetchKlines } from './utils/api';
 import {
-  drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
+  drawGrid, drawHeatmap, drawCandles, drawVolumeProfile, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
 } from './rendering';
 import { CHART_CONSTANTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
 import '../shared/styles/style.shared_chart.css';
 import './styles/style.chart.css';
 
 const MAIN_RENDER_STEPS = [
-  drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
+  drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawVolumeProfile, drawPriceScale, drawCrosshair, drawTooltip,
 ];
 
 const Chart = () => {

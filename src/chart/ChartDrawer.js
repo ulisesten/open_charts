@@ -1,11 +1,12 @@
 import {
   CHART_COLORS, CHART_DEFAULTS, CHART_CONSTANTS,
 } from './utils/constants';
-import { computePriceRange, yToPrice } from './utils/scales';
+import { computePriceRange, yToPrice, visiblePriceRange } from './utils/scales';
 import { floor2 } from './utils/format';
 import { calculateSmi } from './utils/sqzMomentum';
 import { calculateAdx } from './utils/adx';
 import { calculateMovingAverages } from './utils/movingAverages';
+import { calculateVolumeProfile } from './utils/volumeProfile';
 import {
   drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawTimeScale, drawCrosshair, drawTooltip,
   drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawIndicatorGrid,
@@ -36,6 +37,9 @@ export class ChartDrawer {
     this.adxData = [];
     this.movingAverages = [];
     this.liquidations = [];
+    this._vpCache = null;
+    this._vpCacheKey = '';
+    this._vpThrottleTime = 0;
     this.symbol = CHART_CONSTANTS.DEFAULT_SYMBOL;
     this.interval = CHART_CONSTANTS.DEFAULT_INTERVAL;
 
@@ -405,12 +409,35 @@ export class ChartDrawer {
     this.requestDraw();
   }
 
+  _updateVpCache() {
+    if (this.isSubPanel || !this.chartWidth || this.data.length === 0) return;
+    const pixelsPerCandle = this.widthScale * this.zoomLevel;
+    if (pixelsPerCandle <= 0) return;
+    const plotLeft = this.leftAxisWidth;
+    const plotRight = plotLeft + this.chartWidth;
+    const firstIdx = Math.max(0, Math.floor((plotLeft - this.panOffset) / pixelsPerCandle) - 1);
+    const lastIdx = Math.min(this.data.length - 1, Math.ceil((plotRight - this.panOffset) / pixelsPerCandle) + 1);
+    const visible = visiblePriceRange(this.chartHeight, this.minPrice, this.heightScale, this.zoomLevelY, this.panOffsetY);
+    const vpKey = `${firstIdx}-${lastIdx}-${visible.min.toFixed(2)}-${visible.max.toFixed(2)}-${this.data.length}`;
+    const now = performance.now();
+    if (vpKey !== this._vpCacheKey && now - this._vpThrottleTime > 200) {
+      const slice = this.data.slice(firstIdx, lastIdx + 1);
+      this._vpCache = calculateVolumeProfile(slice, visible.min, visible.max, {
+        binCount: CHART_DEFAULTS.VP_BIN_COUNT,
+        valueAreaRatio: CHART_DEFAULTS.VP_VALUE_AREA_RATIO,
+      });
+      this._vpCacheKey = vpKey;
+      this._vpThrottleTime = now;
+    }
+  }
+
   buildState() {
     return {
       data: this.data,
       smiData: this.smiData,
       adxData: this.adxData,
       movingAverages: this.movingAverages,
+      volumeProfile: this._vpCache,
       liquidations: this.liquidations,
       hoveredIndex: this.hoveredIndex,
       hoveredCandle: this.hoveredCandle,
@@ -461,6 +488,7 @@ export class ChartDrawer {
 
     if (!this.data || this.data.length === 0) return;
 
+    this._updateVpCache();
     const state = this.buildState();
 
     for (const step of this.renderSteps) step(state, ctx);

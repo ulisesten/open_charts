@@ -8,7 +8,7 @@ export const CHART_CONSTANTS = {
   REQUEST_HEADERS: { 'Content-Type': 'application/json' },
   DEFAULT_SYMBOL: 'AVAXUSDT',
   DEFAULT_INTERVAL: '4h',
-  DEFAULT_KLINES_LIMIT: 700,
+  DEFAULT_KLINES_LIMIT: 1500,
   DEFAULT_LIQUIDATIONS_LIMIT: 100,
   LIQUIDATIONS_DAYS: 7,
 };
@@ -46,6 +46,14 @@ export const CHART_COLORS = {
   ADX_MINUS_DI: 'rgba(239, 83, 80, 0.8)',
   ADX_AXIS: 'rgba(255,255,255,0.15)',
   ADX_KEY_LEVEL: '#efece6',
+  VP_HIST: 'rgba(38, 166, 154, 0.4)',
+  VP_HIST_POC: 'rgba(38, 166, 154, 0.7)',
+  VP_HIST_VA: 'rgba(38, 166, 154, 0.5)',
+  VP_POC_LINE: 'rgba(255, 193, 7, 0.8)',
+  VP_VAH_LINE: 'rgba(139, 142, 155, 0.6)',
+  VP_VAL_LINE: 'rgba(139, 142, 155, 0.6)',
+  VP_POC_LABEL: '#ffc107',
+  VP_VA_LABEL: 'rgba(255, 255, 255, 0.6)',
   INDICATOR_AXIS_WIDTH: 50,
 };
 
@@ -88,6 +96,9 @@ export const CHART_DEFAULTS = {
   ADX_LENGTH: 14,
   ADX_VALUE_MAX: 100,
   INDICATOR_USABLE_HEIGHT_RATIO: 0.9,
+  VP_BIN_COUNT: 100,
+  VP_VALUE_AREA_RATIO: 0.7,
+  VP_MAX_WIDTH_RATIO: 0.3,
 };
 
 export const CHART_SYMBOLS = [
