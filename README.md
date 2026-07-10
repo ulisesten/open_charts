@@ -1,70 +1,167 @@
-# Getting Started with Create React App
+# OpenCharts
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Plataforma gratuita de gráficos de trading en tiempo real para criptomonedas, con datos de Binance. Velas japonesas, indicadores técnicos (SMI, ADX, medias móviles) y interacción completa (mouse + touch). Sin registro, sin costos, código abierto.
 
-## Available Scripts
+## Características
 
-In the project directory, you can run:
+- **Velas japonesas en vivo** — datos de Binance vía REST (klines) + WebSocket (kline stream), sin delays
+- **Indicadores técnicos:**
+  - SMA 50 (naranja), 100 (morado), 200 (blanco grueso)
+  - SMI (Squeeze Momentum Indicator) con área coloreada por tendencia y squeeze dots
+  - ADX con key level @ 23, +DI/-DI
+- **Interacción completa:**
+  - Mouse: drag X/Y, zoom con rueda (X/Y), zoom vertical arrastrando en eje de precio, paneo Shift+rueda
+  - Touch: 1 dedo = pan, 2 dedos = pinch zoom X/Y
+  - Crosshair y tooltip O/C/H/L coloreados
+- **Responsive** — funciona en escritorio, tablet y móvil (`100dvh`, `visualViewport.resize`)
+- **Persistencia** — paneo/zoom guardados en localStorage
+- **Código abierto** — React + Canvas API, sin dependencias pesadas
 
-### `npm start`
+## Arquitectura
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+src/chart/
+├── index.js              Componente React (lifecycle, resize, orquesta drawer + sub-panel)
+├── ChartDrawer.js        Único orquestador con estado (escalas, eventos, WS, render loop rAF)
+├── utils/
+│   ├── constants.js      URLs, colores, defaults (CHART_CONSTANTS / CHART_COLORS / CHART_DEFAULTS)
+│   ├── scales.js         Helpers puros: priceToY, visiblePriceRange, priceTickValues, etc.
+│   ├── format.js         formatKlines, formatPrice, formatAxisTime
+│   ├── api.js            fetchKlines (REST Binance)
+│   ├── sqzMomentum.js    calculateSmi
+│   ├── adx.js            calculateAdx, ADX_KEY_LEVEL
+│   └── movingAverages.js calculateSMA, calculateMovingAverages
+├── rendering/            Funciones puras (state, ctx) => void
+│   ├── drawGrid.js       Cuadrícula sobre el rango visible
+│   ├── drawCandles.js    Velas con escalado manual (sin ctx.scale)
+│   ├── drawMovingAverages.js
+│   ├── drawPriceScale.js
+│   ├── drawTimeScale.js
+│   ├── drawCrosshair.js
+│   ├── drawTooltip.js
+│   ├── drawSmi.js        Área por tendencia con cortes verticales
+│   ├── drawAdx.js        Línea ADX + key level sólido
+│   └── ...
+└── styles/style.chart.css
+server/
+└── index.js              Proxy Express para liquidaciones de Binance (puerto configurable)
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Principios de diseño
 
-### `npm test`
+- **`ChartDrawer`** es el único componente con estado. Los renderers en `rendering/` son funciones puras `(state, ctx) => void` que no mutan `state`.
+- Todo redibujado pasa por `requestDraw()` (rAF) — un único frame pendiente a la vez.
+- Las velas usan escalado manual (`x = plotLeft + panOffset + i * pixelsPerCandle`), no `ctx.scale()`, para evitar deformación de `lineWidth` al hacer zoom.
+- Grid y ejes se calculan sobre el rango **visible** (`visiblePriceRange` en `scales.js`), no sobre el rango de datos.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Requisitos
 
-### `npm run build`
+- Node.js 18+
+- pnpm
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Instalación
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+# Clonar el repositorio
+git clone https://github.com/anomalyco/open_charts.git
+cd open_charts
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Instalar dependencias del cliente
+pnpm install
 
-### `npm run eject`
+# Instalar dependencias del proxy server
+cd server && pnpm install && cd ..
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Copiar .env
+cp .env.example .env
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Configuración
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Editar `.env`:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```
+PORT=8080   # Puerto del proxy de liquidaciones
+```
 
-## Learn More
+## Uso
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Script de arranque
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+./start.sh
+```
 
-### Code Splitting
+Inicia el proxy server en background y el cliente React en `http://localhost:3000`.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### Manual
 
-### Analyzing the Bundle Size
+```bash
+# Proxy server (terminal 1)
+cd server && pnpm start
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+# Cliente React (terminal 2)
+pnpm start
+```
 
-### Making a Progressive Web App
+### Build de producción
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+```bash
+pnpm build
+```
 
-### Advanced Configuration
+### Lint
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```bash
+pnpm exec eslint --ext .js,.jsx src
+```
 
-### Deployment
+## Despliegue con nginx
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+1. **Build del cliente:**
+   ```bash
+   pnpm build
+   ```
 
-### `npm run build` fails to minify
+2. **Proxy server:** Arrancar `node server/index.js` (lee `PORT` desde `.env`).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+3. **nginx:** Servir `build/` como estático y proxyar `/liquidations` al proxy server:
+
+   ```nginx
+   server {
+       listen 80;
+       server_name opencharts.app;
+
+       root /path/to/open_charts/build;
+       index index.html;
+
+       location / {
+           try_files $uri $uri/ /index.html;
+       }
+
+       location /liquidations {
+           proxy_pass http://localhost:8080;
+       }
+   }
+   ```
+
+## Datos
+
+Los datos de mercado provienen de la API pública de Binance:
+- **Klines (REST):** `https://api.binance.com/api/v3/klines`
+- **WebSocket:** `wss://stream.binance.com:9443/ws` (kline stream en tiempo real)
+- **Liquidaciones:** `https://fapi.binance.com/fapi/v1/liquidationOrders` (vía proxy)
+
+OpenCharts no está afiliado con Binance.
+
+## Tecnologías
+
+- React 19
+- Canvas 2D API (renderizado manual, sin librerías de charting)
+- WebSocket (datos en tiempo real)
+- Express (proxy de liquidaciones)
+- pnpm
+
+## Licencia
+
+MIT
