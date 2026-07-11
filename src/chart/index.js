@@ -4,7 +4,7 @@ import { fetchKlines } from './utils/api';
 import {
   drawGrid, drawHeatmap, drawCandles, drawVolumeProfile, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
 } from './rendering';
-import { CHART_CONSTANTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
+import { CHART_CONSTANTS, CHART_DEFAULTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
 import '../shared/styles/style.shared_chart.css';
 import './styles/style.chart.css';
 
@@ -23,7 +23,7 @@ const Chart = () => {
     const [chartInterval, setIntervalValue] = useState(CHART_CONSTANTS.DEFAULT_INTERVAL);
     const [isLoading, setIsLoading] = useState(false);
     const [chartData, setChartData] = useState([]);
-    const [subHeightVh, setSubHeightVh] = useState(20);
+    const [subHeightVh, setSubHeightVh] = useState(CHART_DEFAULTS.SUB_PANEL_DEFAULT_VH);
     const draggingRef = useRef(false);
 
     const sizeCanvas = (canvas, container) => {
@@ -67,7 +67,7 @@ const Chart = () => {
         const drawer = new ChartDrawer(canvasRef, {
             renderSteps: MAIN_RENDER_STEPS,
             timeAxisHeight: 0,
-            leftAxisWidth: 50,
+            leftAxisWidth: CHART_DEFAULTS.INDICATOR_AXIS_WIDTH,
         });
         chartRef.current = drawer;
         drawer.setupMouseEvents();
@@ -80,8 +80,8 @@ const Chart = () => {
             adx: true,
             rightIndicator: 'smi',
             leftIndicator: 'adx',
-            leftAxisWidth: 50,
-            timeAxisHeight: 25,
+            leftAxisWidth: CHART_DEFAULTS.INDICATOR_AXIS_WIDTH,
+            timeAxisHeight: CHART_DEFAULTS.TIME_AXIS_HEIGHT,
         });
         subChartRef.current = sub;
         sub.setupMouseEvents();
@@ -126,7 +126,7 @@ const Chart = () => {
             const clientY = e.clientY != null ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : null);
             if (clientY == null) return;
             const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-            const newSubVh = Math.max(5, Math.min(40, (vh - clientY) / vh * 100));
+            const newSubVh = Math.max(CHART_DEFAULTS.SUB_PANEL_MIN_VH, Math.min(CHART_DEFAULTS.SUB_PANEL_MAX_VH, (vh - clientY) / vh * 100));
             setSubHeightVh(newSubVh);
         };
         const onUp = () => { draggingRef.current = false; };

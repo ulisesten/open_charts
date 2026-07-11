@@ -1,4 +1,4 @@
-import { TICK_OPTIONS, TIME_UNITS_MS } from './constants';
+import { TICK_OPTIONS, TIME_UNITS_MS, CHART_DEFAULTS } from './constants';
 
 const DAY_MS = 86_400_000;
 
@@ -48,7 +48,7 @@ export const visiblePriceRange = (chartHeight, minPrice, heightScale, zoomY, pan
 
 export const chooseTimeUnit = (intervalMs, pixelsPerCandle, minGap) => {
   const interval = Math.max(1, intervalMs || 0);
-  const px = Math.max(0.0001, pixelsPerCandle);
+  const px = Math.max(CHART_DEFAULTS.EPS, pixelsPerCandle);
   for (let i = 0; i < TIME_UNITS_MS.length; i++) {
     const unit = TIME_UNITS_MS[i];
     if ((unit / interval) * px >= minGap) return unit;

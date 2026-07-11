@@ -420,7 +420,7 @@ export class ChartDrawer {
     const visible = visiblePriceRange(this.chartHeight, this.minPrice, this.heightScale, this.zoomLevelY, this.panOffsetY);
     const vpKey = `${firstIdx}-${lastIdx}-${visible.min.toFixed(2)}-${visible.max.toFixed(2)}-${this.data.length}`;
     const now = performance.now();
-    if (vpKey !== this._vpCacheKey && now - this._vpThrottleTime > 200) {
+    if (vpKey !== this._vpCacheKey && now - this._vpThrottleTime > CHART_DEFAULTS.VP_THROTTLE_MS) {
       const slice = this.data.slice(firstIdx, lastIdx + 1);
       this._vpCache = calculateVolumeProfile(slice, visible.min, visible.max, {
         binCount: CHART_DEFAULTS.VP_BIN_COUNT,
@@ -608,24 +608,24 @@ export class ChartDrawer {
       if (mouseX >= this.canvas.width - this.rightAxisWidth) {
         if (this.rightIndicator) {
           const oldZoom = this.smiScale.zoomY;
-          this.smiScale.zoomY = clampZoom(this.smiScale.zoomY - e.deltaY * 0.0008);
+          this.smiScale.zoomY = clampZoom(this.smiScale.zoomY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
           this.smiScale.panY = mouseY - (mouseY - this.smiScale.panY) * (this.smiScale.zoomY / oldZoom);
         } else {
           const oldZoom = this.zoomLevelY;
-          this.zoomLevelY = clampZoom(this.zoomLevelY - e.deltaY * 0.0008);
+          this.zoomLevelY = clampZoom(this.zoomLevelY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
           this.panOffsetY = mouseY - (mouseY - this.panOffsetY) * (this.zoomLevelY / oldZoom);
         }
       } else if (this.leftIndicator && mouseX <= this.leftAxisWidth) {
         const oldZoom = this.adxScale.zoomY;
-        this.adxScale.zoomY = clampZoom(this.adxScale.zoomY - e.deltaY * 0.0008);
+        this.adxScale.zoomY = clampZoom(this.adxScale.zoomY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
         this.adxScale.panY = mouseY - (mouseY - this.adxScale.panY) * (this.adxScale.zoomY / oldZoom);
       } else if (e.shiftKey) {
-        this.panOffset -= e.deltaY * 0.5;
+        this.panOffset -= e.deltaY * CHART_DEFAULTS.WHEEL_PAN_SENSITIVITY;
         this.notifyXTransform();
       } else {
         const oldZoom = this.zoomLevel;
         const relX = mouseX - this.leftAxisWidth;
-        this.zoomLevel = clampZoom(this.zoomLevel - e.deltaY * 0.001 * 0.3);
+        this.zoomLevel = clampZoom(this.zoomLevel - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_X_SENSITIVITY * CHART_DEFAULTS.WHEEL_ZOOM_X_MODIFIER);
         this.panOffset = relX - (relX - this.panOffset) * (this.zoomLevel / oldZoom);
         this.notifyXTransform();
       }
@@ -767,17 +767,17 @@ export class ChartDrawer {
           const initialZoom = onLeftAxis ? this._pinchInitialAdxZoomY : this._pinchInitialSmiZoomY;
           const initialPan = onLeftAxis ? this._pinchInitialAdxPanY : this._pinchInitialSmiPanY;
           const newZoom = clampZoom(initialZoom * scale);
-          const realScale = newZoom / (initialZoom || 0.0001);
+          const realScale = newZoom / (initialZoom || CHART_DEFAULTS.EPS);
           targetScale.zoomY = newZoom;
           targetScale.panY = anchorY - (anchorY - initialPan) * realScale + deltaCy;
         } else if (onPriceAxis) {
           const newZoom = clampZoom(this._pinchInitialZoomY * scale);
-          const realScale = newZoom / (this._pinchInitialZoomY || 0.0001);
+          const realScale = newZoom / (this._pinchInitialZoomY || CHART_DEFAULTS.EPS);
           this.zoomLevelY = newZoom;
           this.panOffsetY = anchorY - (anchorY - this._pinchInitialPanY) * realScale + deltaCy;
         } else {
           const newZoom = clampZoom(this._pinchInitialZoom * scale);
-          const realScale = newZoom / (this._pinchInitialZoom || 0.0001);
+          const realScale = newZoom / (this._pinchInitialZoom || CHART_DEFAULTS.EPS);
           this.zoomLevel = newZoom;
           this.panOffset = anchorRelX - (anchorRelX - this._pinchInitialPan) * realScale + deltaCx;
           if (this.isSubPanel) this.calculateWidthScale();
@@ -860,7 +860,7 @@ export class ChartDrawer {
     const chartHeight = this.chartHeight || 1;
     const factor = (this.zoomAnchorY - mouseY) / chartHeight;
     const newZoom = clampZoom(this.zoomStartZoomY * (1 + factor));
-    const baseY = (this.zoomAnchorY - this.zoomStartPanY) / Math.max(0.0001, this.zoomStartZoomY);
+    const baseY = (this.zoomAnchorY - this.zoomStartPanY) / Math.max(CHART_DEFAULTS.EPS, this.zoomStartZoomY);
     if (this.zoomTarget === 'price') {
       this.zoomLevelY = newZoom;
       this.panOffsetY = this.zoomAnchorY - baseY * newZoom;
@@ -885,8 +885,8 @@ export class ChartDrawer {
       return;
     }
 
-    const adjustedX = (mouseX - plotLeft - this.panOffset) / Math.max(0.0001, this.zoomLevel);
-    const idx = Math.floor(adjustedX / Math.max(0.0001, this.widthScale));
+    const adjustedX = (mouseX - plotLeft - this.panOffset) / Math.max(CHART_DEFAULTS.EPS, this.zoomLevel);
+    const idx = Math.floor(adjustedX / Math.max(CHART_DEFAULTS.EPS, this.widthScale));
 
     if (idx < 0 || idx >= this.data.length) {
       if (this.hasTooltip && this.hoveredIndex !== null) this.startTooltipFadeOut();
@@ -916,8 +916,8 @@ export class ChartDrawer {
       : floor2(
         yToPrice(mouseY, this.minPrice, this.heightScale, this.chartHeight, this.zoomLevelY, this.panOffsetY)
       );
-    const adjustedX = (mouseX - plotLeft - this.panOffset) / Math.max(0.0001, this.zoomLevel);
-    const idx = Math.floor(adjustedX / Math.max(0.0001, this.widthScale));
+    const adjustedX = (mouseX - plotLeft - this.panOffset) / Math.max(CHART_DEFAULTS.EPS, this.zoomLevel);
+    const idx = Math.floor(adjustedX / Math.max(CHART_DEFAULTS.EPS, this.widthScale));
     const time = (!overTimeAxis && idx >= 0 && idx < this.data.length) ? this.data[idx].time : null;
 
     this.crosshairPoints = { x: mouseX, y: this.lockedX ? null : mouseY, price, time };
