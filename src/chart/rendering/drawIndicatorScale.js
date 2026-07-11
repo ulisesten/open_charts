@@ -18,15 +18,16 @@ export const drawSmiScale = (state, ctx) => {
   ctx.textBaseline = 'middle';
 
   const maxVal = smiScale.max;
-  const step = maxVal >= 60 ? 20 : maxVal >= 20 ? 10 : 5;
+  const step = CHART_DEFAULTS.INDICATOR_TICK_STEP;
   for (let v = -maxVal; v <= maxVal + 1e-9; v += step) {
     const y = priceToY(v, smiScale.min, smiScale.heightScale, chartHeight, smiScale.zoomY, smiScale.panY);
-    if (y >= 4 && y <= chartHeight - 4) {
+    if (y >= -CHART_DEFAULTS.INDICATOR_LABEL_MARGIN && y <= chartHeight + CHART_DEFAULTS.INDICATOR_LABEL_MARGIN) {
       ctx.fillText(fmt(v), axisX + CHART_DEFAULTS.PRICE_LABEL_PADDING, y);
     }
   }
 
-  ctx.strokeStyle = CHART_COLORS.AXIS;
+  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(axisX, 0);
   ctx.lineTo(axisX, chartHeight);
@@ -39,23 +40,28 @@ export const drawAdxScale = (state, ctx) => {
   if (!adxScale || !leftAxisWidth) return;
 
   ctx.save();
+
+  // Axis line - thin and clean
+  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(leftAxisWidth, 0);
+  ctx.lineTo(leftAxisWidth, chartHeight);
+  ctx.stroke();
+
+  // Labels
   ctx.fillStyle = CHART_COLORS.TEXT;
   ctx.font = `${CHART_DEFAULTS.FONT_SIZE_AXIS}px ${CHART_DEFAULTS.FONT_FAMILY}`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
-  const step = 25;
+  const step = CHART_DEFAULTS.INDICATOR_TICK_STEP;
   for (let v = 0; v <= adxScale.max + 1e-9; v += step) {
     const y = priceToY(v, adxScale.min, adxScale.heightScale, chartHeight, adxScale.zoomY, adxScale.panY);
-    if (y >= 4 && y <= chartHeight - 4) {
+    if (y >= -CHART_DEFAULTS.INDICATOR_LABEL_MARGIN && y <= chartHeight + CHART_DEFAULTS.INDICATOR_LABEL_MARGIN) {
       ctx.fillText(fmt(v), leftAxisWidth - CHART_DEFAULTS.PRICE_LABEL_PADDING, y);
     }
   }
 
-  ctx.strokeStyle = CHART_COLORS.AXIS;
-  ctx.beginPath();
-  ctx.moveTo(leftAxisWidth, 0);
-  ctx.lineTo(leftAxisWidth, chartHeight);
-  ctx.stroke();
   ctx.restore();
 };

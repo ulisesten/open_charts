@@ -1,5 +1,4 @@
 import { CHART_COLORS } from '../utils/constants';
-import { ADX_KEY_LEVEL } from '../utils/adx';
 import { priceToY } from '../utils/scales';
 
 export const drawAdx = (state, ctx) => {
@@ -41,7 +40,8 @@ export const drawAdx = (state, ctx) => {
   }
   ctx.stroke();
 
-  const keyY = priceToY(ADX_KEY_LEVEL, adxScale.min, adxScale.heightScale, chartHeight, adxScale.zoomY, adxScale.panY);
+  const keyLevel = adxScale.keyLevel ?? (adxScale.max / 2);
+  const keyY = priceToY(keyLevel, adxScale.min, adxScale.heightScale, chartHeight, adxScale.zoomY, adxScale.panY);
   ctx.beginPath();
   ctx.strokeStyle = CHART_COLORS.ADX_KEY_LEVEL;
   ctx.lineWidth = 1;

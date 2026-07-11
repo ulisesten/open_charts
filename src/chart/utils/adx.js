@@ -12,7 +12,7 @@ const wilderSmoothing = (values, period) => {
   return out;
 };
 
-export const ADX_KEY_LEVEL = 23;
+export const ADX_KEY_LEVEL_DEFAULT = 23;
 
 export const calculateAdx = (data, {
   length = CHART_DEFAULTS.ADX_LENGTH,

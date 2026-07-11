@@ -1,10 +1,10 @@
 import {
   CHART_COLORS, CHART_DEFAULTS, CHART_CONSTANTS,
 } from './utils/constants';
-import { computePriceRange, yToPrice, visiblePriceRange } from './utils/scales';
+import { computePriceRange, yToPrice, priceToY, visiblePriceRange } from './utils/scales';
 import { floor2 } from './utils/format';
 import { calculateSmi } from './utils/sqzMomentum';
-import { calculateAdx } from './utils/adx';
+import { calculateAdx, ADX_KEY_LEVEL_DEFAULT } from './utils/adx';
 import { calculateMovingAverages } from './utils/movingAverages';
 import { calculateVolumeProfile } from './utils/volumeProfile';
 import {
@@ -97,6 +97,7 @@ export class ChartDrawer {
       zoomY: 1, panY: 0, min: 0, max: CHART_DEFAULTS.ADX_VALUE_MAX,
       range: CHART_DEFAULTS.ADX_VALUE_MAX, heightScale: 1,
       axisWidth: this.leftAxisWidth,
+      keyLevel: ADX_KEY_LEVEL_DEFAULT,
     };
 
     this.xTransformListeners = [];
@@ -516,8 +517,7 @@ export class ChartDrawer {
 
       if (this.isZoomingY) {
         this.applyVerticalZoom(mouseY);
-      } else if (this.isDragging) {
-        const dx = mouseX - this.lastX;
+      } else if (this.isDragging) {        const dx = mouseX - this.lastX;
         const dy = mouseY - this.lastY;
         this.lastX = mouseX;
         this.lastY = mouseY;
@@ -526,6 +526,16 @@ export class ChartDrawer {
           this.smiScale.panY += dy;
         } else if (this.dragMode === 'panAdxY') {
           this.adxScale.panY += dy;
+        } else if (this.dragMode === 'panXYSub') {
+        } else if (this.dragMode === 'panXYSub') {
+          this.panOffset += dx;
+          this.notifyXTransform();
+        } else if (this.dragMode === 'dragKeyLevel') {
+          const newY = mouseY - (this._keyLevelDragOffset || 0);
+          const newLevel = this._yToAdxLevel(newY);
+          if (newLevel != null) {
+            this.adxScale.keyLevel = Math.max(0, Math.min(CHART_DEFAULTS.ADX_VALUE_MAX, newLevel));
+          }
         } else {
           this.panOffset += dx;
           if (!this.isSubPanel) {
@@ -539,6 +549,11 @@ export class ChartDrawer {
           }
           this.notifyXTransform();
         }
+      } else if (this.isSubPanel && this.leftIndicator === 'adx' && mouseX <= CHART_DEFAULTS.INDICATOR_AXIS_WIDTH) {
+        const keyDelta = this._getKeyLevelYDelta(mouseY);
+        this.canvas.style.cursor = Math.abs(keyDelta) < CHART_DEFAULTS.KEY_LEVEL_GRAB_PX ? 'ns-resize' : 'default';
+      } else if (!this.isDragging && !this.isZoomingY) {
+        this.canvas.style.cursor = 'default';
       }
 
       this.detectHoveredCandle(mouseX, mouseY);
@@ -565,14 +580,45 @@ export class ChartDrawer {
       this.lastX = mouseX;
       this.lastY = mouseY;
 
-      if (this.isSubPanel && this.isOverRightAxis(mouseX)) {
-        this.isDragging = true;
-        this.dragMode = 'panSmiY';
-        this.canvas.style.cursor = 'ns-resize';
-      } else if (this.isSubPanel && this.isOverLeftAxis(mouseX) && this.leftIndicator) {
-        this.isDragging = true;
-        this.dragMode = 'panAdxY';
-        this.canvas.style.cursor = 'ns-resize';
+      if (this.isSubPanel) {
+        const leftAxisW = CHART_DEFAULTS.INDICATOR_AXIS_WIDTH;
+        const rightAxisW = this.rightAxisWidth || CHART_DEFAULTS.PRICE_AXIS_WIDTH;
+        const plotLeft = leftAxisW;
+        const plotRight = this.canvas.width - rightAxisW;
+        const plotW = plotRight - plotLeft;
+        
+        // Check if clicking on left axis area (for ADX pan or Key Level drag)
+        if (mouseX <= leftAxisW && this.leftIndicator === 'adx') {
+          const keyDelta = this._getKeyLevelYDelta(mouseY);
+          if (Math.abs(keyDelta) < CHART_DEFAULTS.KEY_LEVEL_GRAB_PX) {
+            this.isDragging = true;
+            this.dragMode = 'dragKeyLevel';
+            this._keyLevelDragOffset = keyDelta;
+            this.canvas.style.cursor = 'ns-resize';
+          } else {
+            this.isDragging = true;
+            this.dragMode = 'panAdxY';
+            this.canvas.style.cursor = 'ns-resize';
+          }
+        // Check if clicking on right axis area (for SMI pan)
+        } else if (mouseX >= plotRight && this.rightIndicator === 'smi') {
+          this.isDragging = true;
+          this.dragMode = 'panSmiY';
+          this.canvas.style.cursor = 'ns-resize';
+        } else {
+          // Clicked in the plot area - use zones
+          const relX = mouseX - plotLeft;
+          const normalizedX = plotW > 0 ? relX / plotW : 0.5;
+          const leftZone = normalizedX < 0.33;
+          const rightZone = normalizedX > 0.66;
+          this.isDragging = true;
+          this.dragMode = (leftZone && this.leftIndicator === 'adx')
+            ? 'panAdxY'
+            : (rightZone && this.rightIndicator === 'smi')
+              ? 'panSmiY'
+              : 'panXYSub';
+          this.canvas.style.cursor = this.dragMode === 'panXYSub' ? 'grabbing' : 'ns-resize';
+        }
       } else if (!this.isSubPanel && this.isOverRightAxis(mouseX)) {
         this.isZoomingY = true;
         this.zoomAnchorY = mouseY;
@@ -595,6 +641,7 @@ export class ChartDrawer {
       this.dragMode = null;
       this.zoomTarget = null;
       this.activeZoomScale = null;
+      this._keyLevelDragOffset = null;
       this.canvas.style.cursor = 'default';
       if (!this.isSubPanel) this.saveState();
     };
@@ -854,6 +901,27 @@ export class ChartDrawer {
 
   isOverPriceAxis(x) {
     return this.isOverRightAxis(x);
+  }
+
+  _getKeyLevelY(mouseY) {
+    const adxScale = this.adxScale;
+    if (!adxScale || !this.chartHeight) return null;
+    return priceToY(adxScale.keyLevel ?? CHART_DEFAULTS.ADX_VALUE_MAX / 2,
+      adxScale.min, adxScale.heightScale, this.chartHeight,
+      adxScale.zoomY, adxScale.panY);
+  }
+
+  _getKeyLevelYDelta(mouseY) {
+    const keyY = this._getKeyLevelY(mouseY);
+    if (keyY == null) return Infinity;
+    return mouseY - keyY;
+  }
+
+  _yToAdxLevel(mouseY) {
+    const adxScale = this.adxScale;
+    if (!adxScale || !this.chartHeight) return null;
+    return yToPrice(mouseY, adxScale.min, adxScale.heightScale, this.chartHeight,
+      adxScale.zoomY, adxScale.panY);
   }
 
   applyVerticalZoom(mouseY) {
