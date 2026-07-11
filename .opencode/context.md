@@ -15,6 +15,7 @@ Librería JS para charts de trading, estilo TradingView, manteniendo simplicidad
     - `sqzMomentum.js` - `calculateSmi` (SMI = Squeeze Momentum Indicator con histograma + colores up/down/dim)
     - `adx.js` - `calculateAdx`, `adxColor`, `ADX_KEY_LEVEL = 23` (umbral de tendencia)
     - `movingAverages.js` - `calculateSMA`, `calculateMovingAverages` (SMA 50/100/200, O(n) sliding window)
+    - `volumeProfile.js` - `calculateVolumeProfile` (rango variable: bins + POC + Value Area 70%)
   - `rendering/` - Renderers puros `(state, ctx) => void` (no mutan estado):
     - `index.js` - Re-exports
     - `drawGrid.js` - Cuadrícula principal (precios via `visiblePriceRange`, líneas temporales con slice del viewport X)
@@ -27,6 +28,7 @@ Librería JS para charts de trading, estilo TradingView, manteniendo simplicidad
     - `drawHeatmap.js` - Marcadores de liquidación
     - `drawSmi.js` - SMI con área rellena por tendencia (up/down/up_dim/down_dim), cortes verticales via `clip()`, squeeze dots
     - `drawAdx.js` - Línea ADX + key level @ 23 (sólida)
+    - `drawVolumeProfile.js` - Volume Profile (rango variable): histograma derecho, líneas POC/VAH/VAL, labels
     - `drawIndicatorGrid.js` - Grid para sub-panel (precios SMI/ADX + líneas temporales)
     - `drawIndicatorScale.js` - `drawSmiScale`, `drawAdxScale` (ejes del sub-panel)
   - `styles/style.chart.css`
@@ -58,6 +60,8 @@ Librería JS para charts de trading, estilo TradingView, manteniendo simplicidad
 | Rango precio visible | `scales.js` `visiblePriceRange` (~39) |
 | Color por tendencia (SMI) | `drawSmi.js` `fillColor`/`strokeColor` (~4-14) |
 | Key level ADX | `adx.js` `ADX_KEY_LEVEL = 23`; `drawAdx.js` (~45) |
+| Volume Profile (cálculo) | `ChartDrawer.js` `_updateVpCache` (~412); cache + throttle 200ms |
+| Volume Profile (render) | `rendering/drawVolumeProfile.js` (derecha, opacidad 0.4-0.7) |
 | Cólores de velas | `constants.js` `CHART_COLORS.UP`/`DOWN`/`BORDER_*` (~16-21) |
 | Sizes default | `constants.js` `CHART_DEFAULTS.*` (~48-87) |
 
@@ -77,12 +81,15 @@ Librería JS para charts de trading, estilo TradingView, manteniendo simplicidad
 - Medias móviles 50/100/200 (naranja/morado/blanco gruesa)
 - SMI (Squeeze Momentum) con área rellena por tendencia y squeeze dots
 - ADX con key level @ 23 (sólida)
+- Volume Profile (rango variable) anclado a la derecha: histograma + POC + Value Area (70%)
 - Tooltip O/C/H/L coloreados por tendencia de vela
 - Interacción: drag X/Y, zoom horizontal/vertical (rueda), zoom vertical por drag en eje de precios, paneo Shift+rueda
 - Touch: 1 dedo = pan X/Y, 2 dedos = pinch zoom X/Y (ancla en centro inicial, `realScale` post-clamp)
 - Grid + ejes calculados sobre el rango **visible** (no solo sobre velas)
 - Crosshair y tooltip sincronizables entre paneles
 - Paneo/zoom persistente en localStorage; al cargar, siempre posiciona a la derecha (mantiene zoom guardado)
+- Límites de zoom: ZOOM_MIN=0.2, ZOOM_MAX=30
+- Sub-panel por defecto a 20vh (resize draggable entre 5vh-40vh)
 - Canvas responsivo (`100dvh`, `visualViewport.resize` en móvil); sub-panel también ajusta zoom vertical al resize
 - Proxy de liquidaciones configurado por `.env` (`PORT`)
 - Heatmap de liquidaciones (estructura lista)

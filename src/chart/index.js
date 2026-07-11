@@ -23,7 +23,7 @@ const Chart = () => {
     const [chartInterval, setIntervalValue] = useState(CHART_CONSTANTS.DEFAULT_INTERVAL);
     const [isLoading, setIsLoading] = useState(false);
     const [chartData, setChartData] = useState([]);
-    const [subHeightVh, setSubHeightVh] = useState(15);
+    const [subHeightVh, setSubHeightVh] = useState(20);
     const draggingRef = useRef(false);
 
     const sizeCanvas = (canvas, container) => {

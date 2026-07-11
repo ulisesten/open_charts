@@ -782,9 +782,6 @@ export class ChartDrawer {
           this.panOffset = anchorRelX - (anchorRelX - this._pinchInitialPan) * realScale + deltaCx;
           if (this.isSubPanel) this.calculateWidthScale();
           this.notifyXTransform();
-          if (typeof window !== 'undefined' && window.__debugPinch) {
-            console.log('[pinch X]', { newZoom, panOffset: this.panOffset, scale, realScale, anchorRelX, initialPan: this._pinchInitialPan, deltaCx });
-          }
         }
       }
       this.requestDraw();
