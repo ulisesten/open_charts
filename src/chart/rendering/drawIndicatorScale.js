@@ -26,7 +26,7 @@ export const drawSmiScale = (state, ctx) => {
     }
   }
 
-  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.strokeStyle = CHART_COLORS.AXIS;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(axisX, 0);
@@ -54,7 +54,7 @@ export const drawRsiScale = (state, ctx) => {
     }
   }
 
-  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.strokeStyle = CHART_COLORS.AXIS;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(axisX, 0);
@@ -70,7 +70,7 @@ export const drawAdxScale = (state, ctx) => {
   ctx.save();
 
   // Axis line - thin and clean
-  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.strokeStyle = CHART_COLORS.AXIS;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(leftAxisWidth, 0);

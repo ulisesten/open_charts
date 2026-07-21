@@ -48,17 +48,6 @@ export const drawRsi = (state, ctx) => {
   const limitRight = last !== -1 ? Math.min(plotRight, candleCenterX(last) + pixelsPerCandle / 2) : plotRight;
 
   if (limitLeft < limitRight) {
-    for (const lvlY of [obY, osY]) {
-      ctx.strokeStyle = CHART_COLORS.RSI_KEY_LEVEL;
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(limitLeft, lvlY);
-      ctx.lineTo(limitRight, lvlY);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
     ctx.beginPath();
     ctx.strokeStyle = CHART_COLORS.RSI_LINE;
     ctx.lineWidth = 1.5;
@@ -81,6 +70,19 @@ export const drawRsi = (state, ctx) => {
     }
     ctx.stroke();
   }
+
+  const centerLevel = (CHART_DEFAULTS.RSI_VALUE_MIN + CHART_DEFAULTS.RSI_VALUE_MAX) / 2;
+  const centerY = priceToY(centerLevel, rsiScale.min, rsiScale.heightScale, chartHeight, rsiScale.zoomY, rsiScale.panY);
+  for (const lvlY of [obY, centerY, osY]) {
+    ctx.strokeStyle = CHART_COLORS.RSI_KEY_LEVEL;
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, lvlY);
+    ctx.lineTo(plotRight, lvlY);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
 
   ctx.restore();
 };

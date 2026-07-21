@@ -464,6 +464,8 @@ export class ChartDrawer {
       rsiData: this.rsiData,
       smiEnabled: this.smiEnabled,
       rsiEnabled: this.rsiEnabled,
+      rightIndicator: this.rightIndicator,
+      leftIndicator: this.leftIndicator,
       movingAverages: this.movingAverages,
       volumeProfile: this._vpCache,
       liquidations: this.liquidations,
