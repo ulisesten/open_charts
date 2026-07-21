@@ -5,11 +5,12 @@ import { computePriceRange, yToPrice, priceToY, visiblePriceRange } from './util
 import { floor2 } from './utils/format';
 import { calculateSmi } from './utils/sqzMomentum';
 import { calculateAdx, ADX_KEY_LEVEL_DEFAULT } from './utils/adx';
+import { calculateRsi } from './utils/rsi';
 import { calculateMovingAverages } from './utils/movingAverages';
 import { calculateVolumeProfile } from './utils/volumeProfile';
 import {
   drawGrid, drawHeatmap, drawCandles, drawMovingAverages, drawPriceScale, drawTimeScale, drawCrosshair, drawTooltip,
-  drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawIndicatorGrid,
+  drawSmi, drawAdx, drawRsi, drawSmiScale, drawAdxScale, drawRsiScale, drawIndicatorGrid, drawIndicatorLabel,
 } from './rendering';
 
 const DEFAULT_RENDER_STEPS = [
@@ -17,10 +18,14 @@ const DEFAULT_RENDER_STEPS = [
 ];
 
 const SMI_RENDER_STEPS = [
-  drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawTimeScale, drawCrosshair,
+  drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawTimeScale, drawIndicatorLabel, drawCrosshair,
 ];
 
-export { SMI_RENDER_STEPS };
+const RSI_RENDER_STEPS = [
+  drawRsi, drawRsiScale, drawIndicatorLabel, drawTimeScale, drawCrosshair,
+];
+
+export { SMI_RENDER_STEPS, RSI_RENDER_STEPS };
 
 export class ChartDrawer {
   constructor(canvasRef, options = {}) {
@@ -31,10 +36,12 @@ export class ChartDrawer {
     this.isSubPanel = !!options.lockedX;
     this.smiEnabled = !!options.smi;
     this.adxEnabled = !!options.adx;
+    this.rsiEnabled = !!options.rsi;
 
     this.data = [];
     this.smiData = [];
     this.adxData = [];
+    this.rsiData = [];
     this.movingAverages = [];
     this.liquidations = [];
     this._vpCache = null;
@@ -99,6 +106,14 @@ export class ChartDrawer {
       axisWidth: this.leftAxisWidth,
       keyLevel: ADX_KEY_LEVEL_DEFAULT,
     };
+    this.rsiScale = {
+      zoomY: 1, panY: 0,
+      min: CHART_DEFAULTS.RSI_VALUE_MIN,
+      max: CHART_DEFAULTS.RSI_VALUE_MAX,
+      range: CHART_DEFAULTS.RSI_VALUE_MAX - CHART_DEFAULTS.RSI_VALUE_MIN,
+      heightScale: 1,
+      axisWidth: this.rightAxisWidth,
+    };
 
     this.xTransformListeners = [];
     this.crosshairListeners = [];
@@ -114,6 +129,7 @@ export class ChartDrawer {
     this.movingAverages = calculateMovingAverages(data);
     if (this.smiEnabled) this.smiData = calculateSmi(data);
     if (this.adxEnabled) this.adxData = calculateAdx(data);
+    if (this.rsiEnabled) this.rsiData = calculateRsi(data);
     this.calculateScales();
     if (!this.lockedX) {
       this.restoreState();
@@ -317,6 +333,13 @@ export class ChartDrawer {
       this.adxScale.range = CHART_DEFAULTS.ADX_VALUE_MAX;
       this.adxScale.heightScale = (chartHeight * CHART_DEFAULTS.INDICATOR_USABLE_HEIGHT_RATIO) / this.adxScale.range;
     }
+
+    if (this.rightIndicator === 'rsi') {
+      this.rsiScale.min = CHART_DEFAULTS.RSI_VALUE_MIN;
+      this.rsiScale.max = CHART_DEFAULTS.RSI_VALUE_MAX;
+      this.rsiScale.range = CHART_DEFAULTS.RSI_VALUE_MAX - CHART_DEFAULTS.RSI_VALUE_MIN;
+      this.rsiScale.heightScale = (chartHeight * CHART_DEFAULTS.INDICATOR_USABLE_HEIGHT_RATIO) / this.rsiScale.range;
+    }
   }
 
   calculateWidthScale() {
@@ -404,6 +427,7 @@ export class ChartDrawer {
 
     if (this.smiEnabled) this.smiData = calculateSmi(this.data);
     if (this.adxEnabled) this.adxData = calculateAdx(this.data);
+    if (this.rsiEnabled) this.rsiData = calculateRsi(this.data);
     this.movingAverages = calculateMovingAverages(this.data);
     if (this.isSubPanel) this.calculateWidthScale();
     else this.calculateScales();
@@ -437,6 +461,9 @@ export class ChartDrawer {
       data: this.data,
       smiData: this.smiData,
       adxData: this.adxData,
+      rsiData: this.rsiData,
+      smiEnabled: this.smiEnabled,
+      rsiEnabled: this.rsiEnabled,
       movingAverages: this.movingAverages,
       volumeProfile: this._vpCache,
       liquidations: this.liquidations,
@@ -468,6 +495,7 @@ export class ChartDrawer {
       pricescaleIntervalCount: this.pricescaleIntervalCount,
       smiScale: this.smiScale,
       adxScale: this.adxScale,
+      rsiScale: this.rsiScale,
     };
   }
 
@@ -526,7 +554,8 @@ export class ChartDrawer {
           this.smiScale.panY += dy;
         } else if (this.dragMode === 'panAdxY') {
           this.adxScale.panY += dy;
-        } else if (this.dragMode === 'panXYSub') {
+        } else if (this.dragMode === 'panRsiY') {
+          this.rsiScale.panY += dy;
         } else if (this.dragMode === 'panXYSub') {
           this.panOffset += dx;
           this.notifyXTransform();
@@ -586,8 +615,9 @@ export class ChartDrawer {
         const plotLeft = leftAxisW;
         const plotRight = this.canvas.width - rightAxisW;
         const plotW = plotRight - plotLeft;
-        
-        // Check if clicking on left axis area (for ADX pan or Key Level drag)
+        const rightPanMode = this.rightIndicator === 'smi' ? 'panSmiY'
+          : this.rightIndicator === 'rsi' ? 'panRsiY' : null;
+
         if (mouseX <= leftAxisW && this.leftIndicator === 'adx') {
           const keyDelta = this._getKeyLevelYDelta(mouseY);
           if (Math.abs(keyDelta) < CHART_DEFAULTS.KEY_LEVEL_GRAB_PX) {
@@ -600,13 +630,11 @@ export class ChartDrawer {
             this.dragMode = 'panAdxY';
             this.canvas.style.cursor = 'ns-resize';
           }
-        // Check if clicking on right axis area (for SMI pan)
-        } else if (mouseX >= plotRight && this.rightIndicator === 'smi') {
+        } else if (mouseX >= plotRight && rightPanMode) {
           this.isDragging = true;
-          this.dragMode = 'panSmiY';
+          this.dragMode = rightPanMode;
           this.canvas.style.cursor = 'ns-resize';
         } else {
-          // Clicked in the plot area - use zones
           const relX = mouseX - plotLeft;
           const normalizedX = plotW > 0 ? relX / plotW : 0.5;
           const leftZone = normalizedX < 0.33;
@@ -614,8 +642,8 @@ export class ChartDrawer {
           this.isDragging = true;
           this.dragMode = (leftZone && this.leftIndicator === 'adx')
             ? 'panAdxY'
-            : (rightZone && this.rightIndicator === 'smi')
-              ? 'panSmiY'
+            : (rightZone && rightPanMode)
+              ? rightPanMode
               : 'panXYSub';
           this.canvas.style.cursor = this.dragMode === 'panXYSub' ? 'grabbing' : 'ns-resize';
         }
@@ -653,11 +681,15 @@ export class ChartDrawer {
       const mouseY = e.clientY - rect.top;
 
       if (mouseX >= this.canvas.width - this.rightAxisWidth) {
-        if (this.rightIndicator) {
+        if (this.rightIndicator === 'smi') {
           const oldZoom = this.smiScale.zoomY;
           this.smiScale.zoomY = clampZoom(this.smiScale.zoomY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
           this.smiScale.panY = mouseY - (mouseY - this.smiScale.panY) * (this.smiScale.zoomY / oldZoom);
-        } else {
+        } else if (this.rightIndicator === 'rsi') {
+          const oldZoom = this.rsiScale.zoomY;
+          this.rsiScale.zoomY = clampZoom(this.rsiScale.zoomY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
+          this.rsiScale.panY = mouseY - (mouseY - this.rsiScale.panY) * (this.rsiScale.zoomY / oldZoom);
+        } else if (!this.isSubPanel) {
           const oldZoom = this.zoomLevelY;
           this.zoomLevelY = clampZoom(this.zoomLevelY - e.deltaY * CHART_DEFAULTS.WHEEL_ZOOM_Y_SENSITIVITY);
           this.panOffsetY = mouseY - (mouseY - this.panOffsetY) * (this.zoomLevelY / oldZoom);
@@ -743,6 +775,8 @@ export class ChartDrawer {
         this._pinchInitialSmiPanY = this.smiScale.panY;
         this._pinchInitialAdxZoomY = this.adxScale.zoomY;
         this._pinchInitialAdxPanY = this.adxScale.panY;
+        this._pinchInitialRsiZoomY = this.rsiScale.zoomY;
+        this._pinchInitialRsiPanY = this.rsiScale.panY;
       }
       this.requestDraw();
     };
@@ -764,6 +798,8 @@ export class ChartDrawer {
             this.smiScale.panY += dy;
           } else if (this.dragMode === 'panAdxY') {
             this.adxScale.panY += dy;
+          } else if (this.dragMode === 'panRsiY') {
+            this.rsiScale.panY += dy;
           } else {
             this.panOffset += dx;
             if (!this.isSubPanel) {
@@ -796,6 +832,8 @@ export class ChartDrawer {
           this._pinchInitialSmiPanY = this.smiScale.panY;
           this._pinchInitialAdxZoomY = this.adxScale.zoomY;
           this._pinchInitialAdxPanY = this.adxScale.panY;
+          this._pinchInitialRsiZoomY = this.rsiScale.zoomY;
+          this._pinchInitialRsiPanY = this.rsiScale.panY;
           this.requestDraw();
           return;
         }
@@ -810,9 +848,15 @@ export class ChartDrawer {
         const onLeftAxis = this._pinchCenter.x <= this.leftAxisWidth;
 
         if (this.isSubPanel && (onPriceAxis || onLeftAxis)) {
-          const targetScale = onLeftAxis ? this.adxScale : this.smiScale;
-          const initialZoom = onLeftAxis ? this._pinchInitialAdxZoomY : this._pinchInitialSmiZoomY;
-          const initialPan = onLeftAxis ? this._pinchInitialAdxPanY : this._pinchInitialSmiPanY;
+          const targetScale = onLeftAxis
+            ? this.adxScale
+            : (this.rightIndicator === 'rsi' ? this.rsiScale : this.smiScale);
+          const initialZoom = onLeftAxis
+            ? this._pinchInitialAdxZoomY
+            : (this.rightIndicator === 'rsi' ? this._pinchInitialRsiZoomY : this._pinchInitialSmiZoomY);
+          const initialPan = onLeftAxis
+            ? this._pinchInitialAdxPanY
+            : (this.rightIndicator === 'rsi' ? this._pinchInitialRsiPanY : this._pinchInitialSmiPanY);
           const newZoom = clampZoom(initialZoom * scale);
           const realScale = newZoom / (initialZoom || CHART_DEFAULTS.EPS);
           targetScale.zoomY = newZoom;

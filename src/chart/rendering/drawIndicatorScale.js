@@ -35,6 +35,34 @@ export const drawSmiScale = (state, ctx) => {
   ctx.restore();
 };
 
+export const drawRsiScale = (state, ctx) => {
+  const { canvasWidth, priceAxisWidth, chartHeight, rsiScale } = state;
+  if (!rsiScale) return;
+
+  const axisX = canvasWidth - (priceAxisWidth || state.rightAxisWidth);
+  ctx.save();
+  ctx.fillStyle = CHART_COLORS.TEXT;
+  ctx.font = `${CHART_DEFAULTS.FONT_SIZE_AXIS}px ${CHART_DEFAULTS.FONT_FAMILY}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  const step = CHART_DEFAULTS.INDICATOR_TICK_STEP;
+  for (let v = rsiScale.min; v <= rsiScale.max + 1e-9; v += step) {
+    const y = priceToY(v, rsiScale.min, rsiScale.heightScale, chartHeight, rsiScale.zoomY, rsiScale.panY);
+    if (y >= -CHART_DEFAULTS.INDICATOR_LABEL_MARGIN && y <= chartHeight + CHART_DEFAULTS.INDICATOR_LABEL_MARGIN) {
+      ctx.fillText(fmt(v), axisX + CHART_DEFAULTS.PRICE_LABEL_PADDING, y);
+    }
+  }
+
+  ctx.strokeStyle = CHART_COLORS.TEXT;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(axisX, 0);
+  ctx.lineTo(axisX, chartHeight);
+  ctx.stroke();
+  ctx.restore();
+};
+
 export const drawAdxScale = (state, ctx) => {
   const { leftAxisWidth, chartHeight, adxScale } = state;
   if (!adxScale || !leftAxisWidth) return;

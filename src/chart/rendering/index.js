@@ -9,5 +9,7 @@ export { drawTooltip } from './drawTooltip';
 export { drawHeatmap } from './drawHeatmap';
 export { drawSmi } from './drawSmi';
 export { drawAdx } from './drawAdx';
-export { drawSmiScale, drawAdxScale } from './drawIndicatorScale';
+export { drawRsi } from './drawRsi';
+export { drawSmiScale, drawAdxScale, drawRsiScale } from './drawIndicatorScale';
 export { drawIndicatorGrid } from './drawIndicatorGrid';
+export { drawIndicatorLabel } from './drawIndicatorLabel';

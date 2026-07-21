@@ -1,9 +1,25 @@
 import { CHART_COLORS } from '../utils/constants';
 import { priceToY } from '../utils/scales';
 
+const firstValidIndex = (arr, getter) => {
+  for (let i = 0; i < arr.length; i++) {
+    const v = getter(arr[i]);
+    if (v !== null && v !== undefined) return i;
+  }
+  return -1;
+};
+
+const lastValidIndex = (arr, getter) => {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    const v = getter(arr[i]);
+    if (v !== null && v !== undefined) return i;
+  }
+  return -1;
+};
+
 export const drawAdx = (state, ctx) => {
   const {
-    adxData, data, widthScale, zoomLevel, panOffset,
+    adxData, smiData, data, widthScale, zoomLevel, panOffset,
     chartHeight, adxScale, leftAxisWidth, priceAxisWidth, canvasWidth,
   } = state;
   if (!adxData || !data || data.length === 0) return;
@@ -40,14 +56,32 @@ export const drawAdx = (state, ctx) => {
   }
   ctx.stroke();
 
+  const adxFirst = firstValidIndex(adxData, (d) => d && d.adx);
+  const adxLast = lastValidIndex(adxData, (d) => d && d.adx);
+  const smiFirst = smiData ? firstValidIndex(smiData, (d) => d && d.value) : -1;
+  const smiLast = smiData ? lastValidIndex(smiData, (d) => d && d.value) : -1;
+  const rangeFirst = Math.max(
+    adxFirst === -1 ? 0 : adxFirst,
+    smiFirst === -1 ? 0 : smiFirst
+  );
+  const rangeLast = Math.min(
+    adxLast === -1 ? data.length - 1 : adxLast,
+    smiLast === -1 ? data.length - 1 : smiLast
+  );
+
   const keyLevel = adxScale.keyLevel ?? (adxScale.max / 2);
   const keyY = priceToY(keyLevel, adxScale.min, adxScale.heightScale, chartHeight, adxScale.zoomY, adxScale.panY);
-  ctx.beginPath();
-  ctx.strokeStyle = CHART_COLORS.ADX_KEY_LEVEL;
-  ctx.lineWidth = 1;
-  ctx.moveTo(plotLeft, keyY);
-  ctx.lineTo(plotRight, keyY);
-  ctx.stroke();
+  if (rangeFirst <= rangeLast) {
+    const candleX = (i) => plotLeft + panOffset + i * pixelsPerCandle + pixelsPerCandle / 2;
+    const keyLeft = Math.max(plotLeft, candleX(rangeFirst) - pixelsPerCandle / 2);
+    const keyRight = Math.min(plotRight, candleX(rangeLast) + pixelsPerCandle / 2);
+    ctx.beginPath();
+    ctx.strokeStyle = CHART_COLORS.ADX_KEY_LEVEL;
+    ctx.lineWidth = 1;
+    ctx.moveTo(keyLeft, keyY);
+    ctx.lineTo(keyRight, keyY);
+    ctx.stroke();
+  }
 
   ctx.restore();
 };
