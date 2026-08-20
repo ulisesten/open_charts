@@ -447,6 +447,7 @@ export class ChartDrawer {
       this._vpCache = calculateVolumeProfile(slice, visible.min, visible.max, {
         binCount: CHART_DEFAULTS.VP_BIN_COUNT,
         valueAreaRatio: CHART_DEFAULTS.VP_VALUE_AREA_RATIO,
+        closeWeight: CHART_DEFAULTS.VP_CLOSE_WEIGHT,
       });
       this._vpCacheKey = vpKey;
       this._vpThrottleTime = now;

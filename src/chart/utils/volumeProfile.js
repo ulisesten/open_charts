@@ -1,9 +1,11 @@
 export const calculateVolumeProfile = (data, minPrice, maxPrice, {
   binCount,
   valueAreaRatio,
+  closeWeight,
 } = {}) => {
   const finalBinCount = binCount || 100;
   const finalValueAreaRatio = valueAreaRatio != null ? valueAreaRatio : 0.7;
+  const finalCloseWeight = closeWeight != null ? closeWeight : 0.5;
   if (!data || data.length === 0 || maxPrice <= minPrice) {
     return { bins: [], pocIndex: 0, vah: maxPrice, val: minPrice, totalVolume: 0 };
   }
@@ -16,15 +18,34 @@ export const calculateVolumeProfile = (data, minPrice, maxPrice, {
     const vol = candle.vol || 0;
     if (vol === 0) continue;
 
-    const lowIdx = Math.floor((candle.low - minPrice) / binSize);
-    const highIdx = Math.ceil((candle.high - minPrice) / binSize);
-    const clampedLow = Math.max(0, Math.min(finalBinCount - 1, lowIdx));
-    const clampedHigh = Math.max(0, Math.min(finalBinCount - 1, highIdx));
-    const span = clampedHigh - clampedLow + 1;
+    const rawLow = Math.floor((candle.low - minPrice) / binSize);
+    const rawHigh = Math.ceil((candle.high - minPrice) / binSize);
+    const low = Math.max(0, Math.min(finalBinCount - 1, rawLow));
+    const high = Math.max(0, Math.min(finalBinCount - 1, rawHigh));
+    const span = high - low + 1;
 
-    const volPerBin = vol / span;
-    for (let b = clampedLow; b <= clampedHigh; b++) {
-      bins[b] += volPerBin;
+    if (span === 1) {
+      bins[low] += vol;
+      continue;
+    }
+
+    const rawClose = Number.isFinite(candle.close)
+      ? candle.close
+      : (candle.low + candle.high) / 2;
+    const close = Math.max(low, Math.min(high, Math.round((rawClose - minPrice) / binSize)));
+    const maxDist = Math.max(high - close, close - low, 1);
+
+    let weightSum = 0;
+    const weights = new Array(span);
+    for (let s = 0; s < span; s++) {
+      const dist = Math.abs(low + s - close);
+      const w = finalCloseWeight + (1 - finalCloseWeight) * (1 - dist / maxDist);
+      weights[s] = w;
+      weightSum += w;
+    }
+    const volPerUnit = vol / weightSum;
+    for (let s = 0; s < span; s++) {
+      bins[low + s] += weights[s] * volPerUnit;
     }
   }
 

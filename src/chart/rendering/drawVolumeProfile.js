@@ -64,6 +64,7 @@ export const drawVolumeProfile = (state, ctx) => {
   ctx.moveTo(plotLeft, vahY);
   ctx.lineTo(plotRight, vahY);
   ctx.stroke();
+  ctx.strokeStyle = CHART_COLORS.VP_VAL_LINE;
   ctx.beginPath();
   ctx.moveTo(plotLeft, valY);
   ctx.lineTo(plotRight, valY);
