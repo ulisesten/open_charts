@@ -59,12 +59,12 @@ export const drawSmi = (state, ctx) => {
 
     const buildAreaPath = () => {
       ctx.beginPath();
-      ctx.moveTo(segFirstX, zeroY);
+      ctx.moveTo(pts[0].x, zeroY);
       ctx.lineTo(pts[0].x, pts[0].y);
       for (let k = 1; k < pts.length; k++) {
         ctx.lineTo(pts[k].x, pts[k].y);
       }
-      ctx.lineTo(segLastX, zeroY);
+      ctx.lineTo(pts[pts.length - 1].x, zeroY);
       ctx.closePath();
     };
 
