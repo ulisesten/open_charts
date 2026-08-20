@@ -3,6 +3,7 @@ import {
 } from './utils/constants';
 import { computePriceRange, yToPrice, priceToY, visiblePriceRange } from './utils/scales';
 import { floor2 } from './utils/format';
+import { getChartSettings, getChartSetting, setChartSetting, hasChartSetting } from './utils/storage';
 import { calculateSmi } from './utils/sqzMomentum';
 import { calculateAdx, ADX_KEY_LEVEL_DEFAULT } from './utils/adx';
 import { calculateRsi } from './utils/rsi';
@@ -50,10 +51,11 @@ export class ChartDrawer {
     this.symbol = CHART_CONSTANTS.DEFAULT_SYMBOL;
     this.interval = CHART_CONSTANTS.DEFAULT_INTERVAL;
 
-    this.zoomLevel = 1;
-    this.zoomLevelY = 1;
-    this.panOffset = CHART_DEFAULTS.INITIAL_PAN_OFFSET_X;
-    this.panOffsetY = 0;
+    const initialSettings = getChartSettings();
+    this.zoomLevel = initialSettings.zoomX;
+    this.zoomLevelY = initialSettings.zoomY;
+    this.panOffset = initialSettings.panX;
+    this.panOffsetY = initialSettings.panY;
     this.maxPanOffsetY = 0;
 
     this.rightAxisWidth = options.rightAxisWidth != null
@@ -222,34 +224,26 @@ export class ChartDrawer {
 
   saveState() {
     if (this.lockedX) return;
-    try {
-      localStorage.setItem(CHART_CONSTANTS.STORAGE_KEY_PAN_X, String(this.panOffset));
-      localStorage.setItem(CHART_CONSTANTS.STORAGE_KEY_ZOOM_X, String(this.zoomLevel));
-    } catch (e) {
-      console.warn('No se pudo guardar el estado en localStorage:', e);
-    }
+    setChartSetting('panX', this.panOffset);
+    setChartSetting('zoomX', this.zoomLevel);
+    setChartSetting('panY', this.panOffsetY);
+    setChartSetting('zoomY', this.zoomLevelY);
   }
 
   restoreState() {
-    try {
-      if (this.lockedX) return;
-      const panX = localStorage.getItem(CHART_CONSTANTS.STORAGE_KEY_PAN_X);
-      const zoomX = localStorage.getItem(CHART_CONSTANTS.STORAGE_KEY_ZOOM_X);
-      if (panX !== null) this.panOffset = parseFloat(panX);
-      if (zoomX !== null) this.zoomLevel = Math.max(CHART_DEFAULTS.ZOOM_MIN, Math.min(CHART_DEFAULTS.ZOOM_MAX, parseFloat(zoomX)));
-    } catch (e) {
-      console.warn('No se pudo restaurar el estado desde localStorage:', e);
-    }
+    if (this.lockedX) return;
+    this.panOffset = getChartSetting('panX');
+    this.zoomLevel = getChartSetting('zoomX');
+    this.panOffsetY = getChartSetting('panY');
+    this.zoomLevelY = getChartSetting('zoomY');
   }
 
   fitToRightmost() {
     if (this.lockedX) return;
     if (!this.data || this.data.length === 0 || !this.chartWidth) return;
 
-    let zoomRestored = false;
-    try {
-      zoomRestored = localStorage.getItem(CHART_CONSTANTS.STORAGE_KEY_ZOOM_X) !== null;
-    } catch { zoomRestored = false; }
+    const zoomRestored = hasChartSetting('zoomX');
+    const panRestored = hasChartSetting('panX');
 
     if (!zoomRestored) {
       const baseWidthScale = this.chartWidth / this.data.length;
@@ -258,9 +252,12 @@ export class ChartDrawer {
       this.zoomLevel = Math.max(CHART_DEFAULTS.ZOOM_MIN, Math.min(CHART_DEFAULTS.ZOOM_MAX, zoom));
     }
 
-    const baseWidthScale = this.chartWidth / Math.max(1, this.data.length);
-    const lastX = this.data.length * baseWidthScale * this.zoomLevel;
-    this.panOffset = this.chartWidth - lastX;
+    if (!panRestored) {
+      const baseWidthScale = this.chartWidth / Math.max(1, this.data.length);
+      const lastX = this.data.length * baseWidthScale * this.zoomLevel;
+      this.panOffset = this.chartWidth - lastX;
+    }
+
     if (!zoomRestored) {
       this.zoomLevelY = 1;
       this.panOffsetY = 0;
@@ -313,7 +310,7 @@ export class ChartDrawer {
     this.candleIntervalMs = this.data.length > 1
       ? this.data[1].time - this.data[0].time
       : 0;
-    this.pricescaleIntervalCount = Math.max(8, Math.round((chartHeight * 0.9 * this.zoomLevelY) / CHART_DEFAULTS.PRICE_TICK_TARGET_PX));
+    this.pricescaleIntervalCount = Math.max(8, Math.round((chartHeight * 0.9) / CHART_DEFAULTS.PRICE_TICK_TARGET_PX));
 
     if (this.rightIndicator === 'smi') {
       let maxAbs = 0;

@@ -18,18 +18,21 @@ export const optimalTickSize = (range, targetCount) => {
   for (let i = 0; i < TICK_OPTIONS.length; i++) {
     if (TICK_OPTIONS[i] > maxTick) return TICK_OPTIONS[i];
   }
-  return Math.pow(10, Math.floor(Math.log10(maxTick)));
+  const factor = Math.pow(10, Math.floor(Math.log10(maxTick)));
+  const mantissa = maxTick / factor;
+  if (mantissa <= 2) return factor * 2;
+  if (mantissa <= 5) return factor * 5;
+  return factor * 10;
 };
-
-export const floorPrice = (min) => Math.floor(min / 10) * 10;
 
 export const priceTickValues = (minPrice, maxPrice, priceRange, intervalCount) => {
   const ticks = [];
   const tickSize = optimalTickSize(priceRange, intervalCount);
-  let price = floorPrice(minPrice);
+  if (!(tickSize > 0)) return ticks;
+  let price = Math.floor(minPrice / tickSize) * tickSize;
   let i = 0;
-  while (price < maxPrice + tickSize && i < 200) {
-    if (price >= minPrice) ticks.push(price);
+  while (price < maxPrice + tickSize && i < 500) {
+    ticks.push(Math.round(price / tickSize) * tickSize);
     price += tickSize;
     i++;
   }

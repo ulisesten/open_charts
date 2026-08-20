@@ -22,11 +22,13 @@ export const formatLiquidations = (raw) => {
 
 export const floor2 = (num) => Math.floor(num * 100) / 100;
 
-export const formatPrice = (price) => {
+export const formatPrice = (price, tickSize) => {
   if (price == null || Number.isNaN(price)) return '';
-  if (price >= 1000) return price.toFixed(2);
-  if (price >= 1) return price.toFixed(2);
-  return price.toFixed(4);
+  let decimals = price >= 1 ? 2 : 4;
+  if (tickSize && tickSize > 0) {
+    decimals = Math.max(0, Math.min(8, Math.ceil(-Math.log10(tickSize))));
+  }
+  return price.toFixed(decimals);
 };
 
 export const formatTimeLabel = (date) =>

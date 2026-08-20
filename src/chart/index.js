@@ -4,7 +4,8 @@ import { fetchKlines } from './utils/api';
 import {
   drawGrid, drawHeatmap, drawCandles, drawVolumeProfile, drawMovingAverages, drawPriceScale, drawCrosshair, drawTooltip,
 } from './rendering';
-import { CHART_CONSTANTS, CHART_DEFAULTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
+import { CHART_DEFAULTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
+import { getChartSetting, setChartSetting } from './utils/storage';
 import '../shared/styles/style.shared_chart.css';
 import './styles/style.chart.css';
 
@@ -22,14 +23,15 @@ const Chart = () => {
     const chartRef = useRef(null);
     const subChartRef = useRef(null);
     const rsiChartRef = useRef(null);
-    const [pairSymbol, setPairSymbol] = useState(CHART_CONSTANTS.DEFAULT_SYMBOL);
-    const [chartInterval, setIntervalValue] = useState(CHART_CONSTANTS.DEFAULT_INTERVAL);
+    const [pairSymbol, setPairSymbol] = useState(() => getChartSetting('symbol'));
+    const [chartInterval, setIntervalValue] = useState(() => getChartSetting('interval'));
     const [isLoading, setIsLoading] = useState(false);
     const [chartData, setChartData] = useState([]);
-    const [subHeightVh, setSubHeightVh] = useState(CHART_DEFAULTS.SUB_PANEL_DEFAULT_VH);
-    const [rsiHeightVh, setRsiHeightVh] = useState(CHART_DEFAULTS.RSI_PANEL_DEFAULT_VH);
+    const [subHeightVh, setSubHeightVh] = useState(() => getChartSetting('subHeightVh'));
+    const [rsiHeightVh, setRsiHeightVh] = useState(() => getChartSetting('rsiHeightVh'));
     const draggingSubRef = useRef(false);
     const draggingRsiRef = useRef(false);
+    const panelsSavedRef = useRef(false);
 
     const sizeCanvas = (canvas, container) => {
         if (!canvas || !container) return;
@@ -206,6 +208,15 @@ const Chart = () => {
     }, [rsiHeightVh]);
 
     useEffect(() => {
+        if (!panelsSavedRef.current) {
+            panelsSavedRef.current = true;
+            return;
+        }
+        setChartSetting('subHeightVh', subHeightVh);
+        setChartSetting('rsiHeightVh', rsiHeightVh);
+    }, [subHeightVh, rsiHeightVh]);
+
+    useEffect(() => {
         sizeAll();
         recalcAll();
     }, [subHeightVh, rsiHeightVh]);
@@ -217,7 +228,10 @@ const Chart = () => {
                     Símbolo
                     <select
                         value={pairSymbol}
-                        onChange={(e) => setPairSymbol(e.target.value)}
+                        onChange={(e) => {
+                            setPairSymbol(e.target.value);
+                            setChartSetting('symbol', e.target.value);
+                        }}
                     >
                         {CHART_SYMBOLS.map((s) => (
                             <option key={s} value={s}>{s}</option>
@@ -228,7 +242,10 @@ const Chart = () => {
                     Intervalo
                     <select
                         value={chartInterval}
-                        onChange={(e) => setIntervalValue(e.target.value)}
+                        onChange={(e) => {
+                            setIntervalValue(e.target.value);
+                            setChartSetting('interval', e.target.value);
+                        }}
                     >
                         {CHART_INTERVALS.map((i) => (
                             <option key={i} value={i}>{i}</option>

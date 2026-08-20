@@ -1,5 +1,5 @@
 import { CHART_COLORS, CHART_DEFAULTS } from '../utils/constants';
-import { priceTickValues, priceToY, visiblePriceRange } from '../utils/scales';
+import { priceTickValues, optimalTickSize, priceToY, visiblePriceRange } from '../utils/scales';
 import { formatPrice } from '../utils/format';
 
 export const drawPriceScale = (state, ctx) => {
@@ -19,12 +19,13 @@ export const drawPriceScale = (state, ctx) => {
   const maxLabelY = chartHeight - CHART_DEFAULTS.PRICE_LABEL_AREA;
   const axisX = canvasWidth - priceAxisWidth + CHART_DEFAULTS.PRICE_LABEL_PADDING;
   const visible = visiblePriceRange(chartHeight, minPrice, heightScale, zoomLevelY, panOffsetY);
+  const tickSize = optimalTickSize(visible.range, pricescaleIntervalCount);
   const prices = priceTickValues(visible.min, visible.max, visible.range, pricescaleIntervalCount);
 
   for (let i = 0; i < prices.length; i++) {
     const y = priceToY(prices[i], minPrice, heightScale, chartHeight, zoomLevelY, panOffsetY);
     if (y >= minLabelY && y <= maxLabelY) {
-      ctx.fillText(formatPrice(prices[i]), axisX, y);
+      ctx.fillText(formatPrice(prices[i], tickSize), axisX, y);
     }
   }
 
