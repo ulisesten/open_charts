@@ -184,6 +184,20 @@ const Chart = () => {
     }, []);
 
     useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') return undefined;
+        const containers = [containerRef.current, subContainerRef.current, rsiContainerRef.current]
+            .filter(Boolean);
+        if (containers.length === 0) return undefined;
+        const observer = new ResizeObserver(() => {
+            sizeAll();
+            if (chartRef.current) chartRef.current.resizeCanvas();
+            recalcAll();
+        });
+        containers.forEach((el) => observer.observe(el));
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
         const onMove = (e) => {
             if (!draggingSubRef.current && !draggingRsiRef.current) return;
             if (e.cancelable) e.preventDefault();

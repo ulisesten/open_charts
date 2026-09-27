@@ -272,7 +272,7 @@ export class ChartDrawer {
     if (!this.data || this.data.length === 0 || !this.chartWidth) return;
 
     const zoomRestored = hasChartSetting('zoomX');
-    const panRestored = hasChartSetting('panX');
+    const panRestored = hasChartSetting('panX') || hasChartSetting('anchorIndex');
 
     if (!zoomRestored) {
       const baseWidthScale = this.chartWidth / this.data.length;
@@ -281,16 +281,19 @@ export class ChartDrawer {
       this.zoomLevel = Math.max(CHART_DEFAULTS.ZOOM_MIN, Math.min(CHART_DEFAULTS.ZOOM_MAX, zoom));
     }
 
-    if (!panRestored) {
+    const pixelsPerCandle = this.widthScale * this.zoomLevel;
+    const showsCandles = pixelsPerCandle > 0
+      && this.panOffset + (this.data.length - 1) * pixelsPerCandle >= 0
+      && this.panOffset <= this.chartWidth;
+
+    if (!panRestored || !showsCandles) {
       const baseWidthScale = this.chartWidth / Math.max(1, this.data.length);
       const lastX = this.data.length * baseWidthScale * this.zoomLevel;
       this.panOffset = this.chartWidth - lastX;
-    }
-
-    if (!zoomRestored) {
       this.zoomLevelY = 1;
       this.panOffsetY = 0;
     }
+
     this.calculateScales();
   }
 
