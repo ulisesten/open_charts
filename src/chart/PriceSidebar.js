@@ -82,8 +82,17 @@ const PriceSidebar = ({ onSelectSymbol, currentSymbol }) => {
   useEffect(() => {
     const connect = () => {
       if (!symbols.length) return;
-      const streams = symbols.map((s) => `${s.toLowerCase()}@miniTicker`).join('/');
-      const ws = new WebSocket(`${CHART_CONSTANTS.WS_STREAM_BASE_URL}${streams}`);
+      const streams = symbols
+        .filter((s) => typeof s === 'string' && /^[A-Z0-9]+$/.test(s))
+        .map((s) => `${s.toLowerCase()}@miniTicker`)
+        .join('/');
+      if (!streams) return;
+      let ws;
+      try {
+        ws = new WebSocket(`${CHART_CONSTANTS.WS_STREAM_BASE_URL}${streams}`);
+      } catch {
+        return;
+      }
       wsRef.current = ws;
       ws.onmessage = (event) => {
         const payload = JSON.parse(event.data);

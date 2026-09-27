@@ -383,7 +383,14 @@ export class ChartDrawer {
     this.symbol = symbol || this.symbol;
     this.interval = interval || this.interval;
     const stream = `${this.symbol.toLowerCase()}@kline_${this.interval}`;
-    this.ws = new WebSocket(`${CHART_CONSTANTS.WS_BASE_URL}/${stream}`);
+    let ws;
+    try {
+      ws = new WebSocket(`${CHART_CONSTANTS.WS_BASE_URL}/${stream}`);
+    } catch (error) {
+      console.error('WebSocket error:', error);
+      return;
+    }
+    this.ws = ws;
 
     this.ws.onopen = () => console.log(`WebSocket conectado: ${stream}`);
     this.ws.onmessage = (event) => this.handleWsMessage(event);
