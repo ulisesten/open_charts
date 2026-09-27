@@ -48,12 +48,16 @@ const drawCurrentPriceLabel = (state, ctx) => {
   if (!data || data.length === 0) return;
   const plotLeft = leftAxisWidth || 0;
 
-  const currentPrice = data[data.length - 1].close;
+  const lastCandle = data[data.length - 1];
+  const currentPrice = lastCandle.close;
+  const dirColor = currentPrice >= lastCandle.open
+    ? CHART_COLORS.PRICE_UP
+    : CHART_COLORS.PRICE_DOWN;
   const priceY = priceToY(currentPrice, minPrice, heightScale, chartHeight, zoomLevelY, panOffsetY);
 
   ctx.save();
   ctx.setLineDash([3, 3]);
-  ctx.strokeStyle = CHART_COLORS.CURRENT_PRICE_LINE;
+  ctx.strokeStyle = dirColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(plotLeft, priceY);
@@ -66,7 +70,7 @@ const drawCurrentPriceLabel = (state, ctx) => {
   const labelX = canvasWidth - priceAxisWidth;
   const labelY = priceY - labelHeight / 2;
 
-  ctx.fillStyle = CHART_COLORS.CURRENT_PRICE_BG;
+  ctx.fillStyle = dirColor;
   ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
 
   ctx.fillStyle = CHART_COLORS.TEXT;

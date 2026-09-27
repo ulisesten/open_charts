@@ -14,7 +14,8 @@
     overflow: hidden;
     position: relative;
     background-color: #272a30;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .chart-sub {
@@ -46,20 +47,18 @@
 }
 
 .chart-toolbar {
-    position: absolute;
-    top: 10px;
-    left: 10px;
     display: flex;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
     z-index: 10;
     padding: 6px 10px;
-    background-color: rgba(20, 24, 35, 0.85);
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #1a1d26;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
     font-family: Arial, sans-serif;
     font-size: 13px;
     color: white;
+    touch-action: none;
 }
 
 .chart-toolbar label {
@@ -88,4 +87,354 @@
 
 .chart-toolbar select:focus {
     border-color: #269ea6;
+}
+
+.chart-toolbar-intervals {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.chart-toolbar-intervals button {
+    background-color: #272a30;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+}
+
+.chart-toolbar-intervals button:hover {
+    border-color: #269ea6;
+}
+
+.chart-toolbar-intervals button.is-active {
+    background-color: #269ea6;
+    border-color: #269ea6;
+    color: white;
+}
+
+.chart-sidebar {
+    width: 0;
+    flex-shrink: 0;
+    background-color: #1a1d26;
+    border-left: none;
+    transition: width 0.2s ease;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.chart-sidebar--open {
+    width: 340px;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.chart-sidebar-toggle {
+    width: 28px;
+    height: 28px;
+    background-color: rgba(20, 24, 35, 0.85);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.chart-sidebar-toggle:hover {
+    border-color: #269ea6;
+}
+
+.chart-rail {
+    width: 36px;
+    flex-shrink: 0;
+    background-color: #1a1d26;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+    touch-action: none;
+}
+
+.chart-body {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.chart-column {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.chart-sidebar-content {
+    width: 340px;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-sidebar-head {
+    font-size: 15px;
+    font-weight: bold;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-sidebar-list {
+    list-style: none;
+    margin: 8px 0;
+    padding: 0;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.chart-sidebar-info {
+    height: 40%;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 8px;
+    overflow-y: auto;
+}
+
+.chart-sidebar-info-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-sidebar-info-thumb {
+    width: 28px;
+    height: 28px;
+}
+
+.chart-sidebar-info-symbol {
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.chart-sidebar-info-name {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.chart-sidebar-info-price {
+    font-size: 30px;
+    font-weight: bold;
+    margin: 8px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-sidebar-info-price.is-up {
+    color: #26a69a;
+}
+
+.chart-sidebar-info-price.is-down {
+    color: #ef5350;
+}
+
+.chart-sidebar-info-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+    font-size: 13px;
+}
+
+.chart-sidebar-info-grid > div {
+    display: flex;
+    align-items: center;
+    padding: 3px 0;
+}
+
+.chart-sidebar-info-grid span {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    width: 150px;
+    flex-shrink: 0;
+}
+
+.chart-sidebar-info-grid b {
+    font-weight: normal;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+    text-align: right;
+}
+
+.chart-sidebar-info-grid b.is-up {
+    color: #26a69a;
+}
+
+.chart-sidebar-info-grid b.is-down {
+    color: #ef5350;
+}
+
+.chart-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.chart-sidebar-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.chart-sidebar-symbol {
+    font-weight: normal;
+    font-size: 14px;
+    width: 90px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chart-sidebar-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.chart-sidebar-price {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    min-width: 84px;
+    text-align: right;
+}
+
+.chart-sidebar-quote {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.chart-sidebar-pct {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    min-width: 78px;
+    text-align: right;
+}
+
+.chart-sidebar-price.is-up,
+.chart-sidebar-pct.is-up,
+.chart-sidebar-symbol.is-up {
+    color: #26a69a;
+}
+
+.chart-sidebar-price.is-down,
+.chart-sidebar-pct.is-down,
+.chart-sidebar-symbol.is-down {
+    color: #ef5350;
+}
+
+.chart-sidebar-remove {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+}
+
+.chart-sidebar-remove:hover {
+    color: #ef5350;
+}
+
+.chart-sidebar-add {
+    display: flex;
+    gap: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-sidebar-search {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+
+.chart-sidebar-add input {
+    flex: 1;
+    min-width: 0;
+    background-color: #272a30;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    outline: none;
+}
+
+.chart-sidebar-add input:focus {
+    border-color: #269ea6;
+}
+
+.chart-sidebar-add button {
+    background-color: #269ea6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.chart-sidebar-suggestions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    max-height: 180px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    background-color: #1a1d26;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    z-index: 22;
+}
+
+.chart-sidebar-suggestions li {
+    padding: 4px 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.chart-sidebar-suggestions li:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.chart-sidebar-nosuggest {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    padding: 6px 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    background-color: #1a1d26;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    z-index: 22;
 }

@@ -19,11 +19,11 @@ const DEFAULT_RENDER_STEPS = [
 ];
 
 const SMI_RENDER_STEPS = [
-  drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawTimeScale, drawIndicatorLabel, drawCrosshair,
+  drawIndicatorGrid, drawSmi, drawAdx, drawSmiScale, drawAdxScale, drawIndicatorLabel, drawCrosshair,
 ];
 
 const RSI_RENDER_STEPS = [
-  drawRsi, drawRsiScale, drawIndicatorLabel, drawTimeScale, drawCrosshair,
+  drawIndicatorGrid, drawRsi, drawRsiScale, drawIndicatorLabel, drawTimeScale, drawCrosshair,
 ];
 
 export { SMI_RENDER_STEPS, RSI_RENDER_STEPS };
@@ -228,14 +228,43 @@ export class ChartDrawer {
     setChartSetting('zoomX', this.zoomLevel);
     setChartSetting('panY', this.panOffsetY);
     setChartSetting('zoomY', this.zoomLevelY);
+    const pixelsPerCandle = this.widthScale * this.zoomLevel;
+    if (pixelsPerCandle > 0 && this.chartWidth) {
+      const plotRight = this.leftAxisWidth + this.chartWidth;
+      setChartSetting('anchorIndex', (plotRight - this.panOffset) / pixelsPerCandle);
+    }
   }
 
   restoreState() {
     if (this.lockedX) return;
-    this.panOffset = getChartSetting('panX');
     this.zoomLevel = getChartSetting('zoomX');
     this.panOffsetY = getChartSetting('panY');
     this.zoomLevelY = getChartSetting('zoomY');
+    const pixelsPerCandle = this.widthScale * this.zoomLevel;
+    if (hasChartSetting('anchorIndex') && pixelsPerCandle > 0) {
+      const anchor = getChartSetting('anchorIndex');
+      this.panOffset = this.leftAxisWidth + this.chartWidth - anchor * pixelsPerCandle;
+    } else {
+      this.panOffset = getChartSetting('panX');
+    }
+  }
+
+  resizeCanvas() {
+    const prevChartWidth = this.chartWidth || 1;
+    const prevPixelsPerCandle = (prevChartWidth / Math.max(1, this.data.length)) * this.zoomLevel;
+    const plotLeft = this.leftAxisWidth || 0;
+    const rightIdx = prevPixelsPerCandle > 0
+      ? (plotLeft + prevChartWidth - this.panOffset) / prevPixelsPerCandle
+      : Math.max(0, this.data.length - 1);
+
+    this.calculateScales();
+
+    const newPixelsPerCandle = this.widthScale * this.zoomLevel;
+    if (newPixelsPerCandle > 0) {
+      this.panOffset = plotLeft + this.chartWidth - rightIdx * newPixelsPerCandle;
+    }
+    this.notifyXTransform();
+    this.requestDraw();
   }
 
   fitToRightmost() {
@@ -435,10 +464,16 @@ export class ChartDrawer {
     if (this.isSubPanel || !this.chartWidth || this.data.length === 0) return;
     const pixelsPerCandle = this.widthScale * this.zoomLevel;
     if (pixelsPerCandle <= 0) return;
-    const plotLeft = this.leftAxisWidth;
-    const plotRight = plotLeft + this.chartWidth;
-    const firstIdx = Math.max(0, Math.floor((plotLeft - this.panOffset) / pixelsPerCandle) - 1);
-    const lastIdx = Math.min(this.data.length - 1, Math.ceil((plotRight - this.panOffset) / pixelsPerCandle) + 1);
+
+    const firstIdx = Math.max(0, Math.floor(-this.panOffset / pixelsPerCandle) - 1);
+    const lastIdx = Math.min(this.data.length - 1, Math.ceil((this.chartWidth - this.panOffset) / pixelsPerCandle) + 1);
+
+    if (firstIdx > lastIdx) {
+      this._vpCache = null;
+      this._vpCacheKey = '';
+      return;
+    }
+
     const visible = visiblePriceRange(this.chartHeight, this.minPrice, this.heightScale, this.zoomLevelY, this.panOffsetY);
     const vpKey = `${firstIdx}-${lastIdx}-${visible.min.toFixed(2)}-${visible.max.toFixed(2)}-${this.data.length}`;
     const now = performance.now();
@@ -626,13 +661,22 @@ export class ChartDrawer {
             this._keyLevelDragOffset = keyDelta;
             this.canvas.style.cursor = 'ns-resize';
           } else {
-            this.isDragging = true;
-            this.dragMode = 'panAdxY';
+            this.isZoomingY = true;
+            this.zoomAnchorY = mouseY;
+            this.zoomTarget = 'indicator';
+            this.activeZoomScale = this.adxScale;
+            this.zoomStartZoomY = this.adxScale.zoomY;
+            this.zoomStartPanY = this.adxScale.panY;
             this.canvas.style.cursor = 'ns-resize';
           }
         } else if (mouseX >= plotRight && rightPanMode) {
-          this.isDragging = true;
-          this.dragMode = rightPanMode;
+          const scale = this.rightIndicator === 'rsi' ? this.rsiScale : this.smiScale;
+          this.isZoomingY = true;
+          this.zoomAnchorY = mouseY;
+          this.zoomTarget = 'indicator';
+          this.activeZoomScale = scale;
+          this.zoomStartZoomY = scale.zoomY;
+          this.zoomStartPanY = scale.panY;
           this.canvas.style.cursor = 'ns-resize';
         } else {
           const relX = mouseX - plotLeft;

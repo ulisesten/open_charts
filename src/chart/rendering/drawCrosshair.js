@@ -15,6 +15,11 @@ export const drawCrosshair = (state, ctx) => {
   const overPriceAxis = x != null && x >= canvasWidth - priceAxisWidth;
   const overTimeAxis = y != null && y >= canvasHeight - timeAxisHeight;
 
+  const candle = state.hoveredCandle;
+  const dirColor = candle
+    ? (candle.close >= candle.open ? CHART_COLORS.PRICE_UP : CHART_COLORS.PRICE_DOWN)
+    : null;
+
   ctx.save();
   ctx.setLineDash([5, 3]);
   ctx.lineWidth = 1;
@@ -28,6 +33,7 @@ export const drawCrosshair = (state, ctx) => {
   }
 
   if (y != null && !overPriceAxis) {
+    ctx.strokeStyle = dirColor || CHART_COLORS.CROSSHAIR;
     ctx.beginPath();
     ctx.moveTo(plotLeft, y);
     ctx.lineTo(canvasWidth - priceAxisWidth, y);
@@ -37,7 +43,7 @@ export const drawCrosshair = (state, ctx) => {
   ctx.setLineDash([]);
 
   if (y != null && !overPriceAxis && state.crosshairPoints.price != null) {
-    drawPriceTag(ctx, canvasWidth - priceAxisWidth, y, formatPrice(state.crosshairPoints.price));
+    drawPriceTag(ctx, canvasWidth - priceAxisWidth, y, formatPrice(state.crosshairPoints.price), dirColor);
   }
 
   if (x != null && !overTimeAxis && state.crosshairPoints.time != null) {
@@ -47,10 +53,10 @@ export const drawCrosshair = (state, ctx) => {
   ctx.restore();
 };
 
-const drawPriceTag = (ctx, axisX, y, text) => {
+const drawPriceTag = (ctx, axisX, y, text, dirColor) => {
   ctx.fillStyle = '#1f1f1f';
   ctx.fillRect(axisX + 4, y - 10, 52, 20);
-  ctx.fillStyle = CHART_COLORS.TEXT;
+  ctx.fillStyle = dirColor || CHART_COLORS.TEXT;
   ctx.font = `${CHART_DEFAULTS.FONT_SIZE_CROSSHAIR_PRICE}px ${CHART_DEFAULTS.FONT_FAMILY}`;
   ctx.textAlign = 'left';
   ctx.fillText(text, axisX + 8, y + 5);

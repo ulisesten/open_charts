@@ -41,6 +41,33 @@ const SETTING_DEFS = {
     parse: (value) => parseFloat(value),
     validate: (value) => Number.isFinite(value),
   },
+  anchorIndex: {
+    storageKey: CHART_DEFAULTS.STORAGE_KEY_ANCHOR_INDEX,
+    defaultValue: null,
+    parse: (value) => parseFloat(value),
+    validate: (value) => Number.isFinite(value),
+  },
+  watchSymbols: {
+    storageKey: CHART_DEFAULTS.STORAGE_KEY_WATCHLIST,
+    defaultValue: [...CHART_SYMBOLS],
+    parse: (value) => {
+      if (Array.isArray(value)) return value;
+      try {
+        const arr = JSON.parse(value);
+        return Array.isArray(arr) ? arr : null;
+      } catch {
+        return null;
+      }
+    },
+    serialize: (value) => JSON.stringify(value),
+    validate: (value) => Array.isArray(value) && value.every((s) => typeof s === 'string' && s.length > 0),
+  },
+  sidebarOpen: {
+    storageKey: CHART_DEFAULTS.STORAGE_KEY_SIDEBAR_OPEN,
+    defaultValue: false,
+    parse: (value) => (typeof value === 'boolean' ? value : value === 'true'),
+    validate: (value) => typeof value === 'boolean',
+  },
   subHeightVh: {
     storageKey: CHART_DEFAULTS.STORAGE_KEY_SUB_PANEL_VH,
     defaultValue: CHART_DEFAULTS.SUB_PANEL_DEFAULT_VH,
@@ -122,7 +149,7 @@ export const setChartSetting = (name, value) => {
   const parsed = def.parse(value);
   const finalValue = def.clamp ? def.clamp(parsed) : parsed;
   if (def.validate && !def.validate(finalValue)) return;
-  safeSet(def.storageKey, finalValue);
+  safeSet(def.storageKey, def.serialize ? def.serialize(finalValue) : String(finalValue));
 };
 
 export const setChartSettings = (settings) => {

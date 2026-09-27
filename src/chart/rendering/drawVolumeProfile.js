@@ -24,12 +24,13 @@ export const drawVolumeProfile = (state, ctx) => {
   ctx.clip();
 
   for (let b = 0; b < binCount; b++) {
+    if (vp.bins[b] <= 0) continue;
     const priceLow = visible.min + b * binSize;
     const priceHigh = priceLow + binSize;
     const yHigh = priceToY(priceHigh, minPrice, heightScale, chartHeight, zoomLevelY, panOffsetY);
     const yLow = priceToY(priceLow, minPrice, heightScale, chartHeight, zoomLevelY, panOffsetY);
     const barHeight = Math.max(1, Math.abs(yLow - yHigh));
-    const barWidth = (vp.bins[b] / vp.maxBinVol) * maxBarWidth;
+    const barWidth = Math.max(CHART_DEFAULTS.VP_MIN_BAR_WIDTH, (vp.bins[b] / vp.maxBinVol) * maxBarWidth);
     const barX = Math.max(plotLeft, plotRight - barWidth);
 
     if (b === vp.pocIndex) {

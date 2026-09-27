@@ -6,6 +6,7 @@ import {
 } from './rendering';
 import { CHART_DEFAULTS, CHART_SYMBOLS, CHART_INTERVALS } from './utils/constants';
 import { getChartSetting, setChartSetting } from './utils/storage';
+import PriceSidebar from './PriceSidebar';
 import '../shared/styles/style.shared_chart.css';
 import './styles/style.chart.css';
 
@@ -63,6 +64,7 @@ const Chart = () => {
 
     const handleResize = () => {
         sizeAll();
+        if (chartRef.current) chartRef.current.resizeCanvas();
         recalcAll();
     };
 
@@ -72,6 +74,19 @@ const Chart = () => {
         setChartData(data);
         setIsLoading(false);
     };
+
+    const handleSelectSymbol = (symbol) => {
+        if (!symbol || symbol === pairSymbol) return;
+        setPairSymbol(symbol);
+        setChartSetting('symbol', symbol);
+    };
+
+    const handleIntervalChange = (interval) => {
+        setIntervalValue(interval);
+        setChartSetting('interval', interval);
+    };
+
+    const INTERVAL_SHORTCUTS = ['15m', '1h', '4h', '1d'];
 
     useEffect(() => {
         loadCandleData(pairSymbol, chartInterval);
@@ -100,7 +115,7 @@ const Chart = () => {
             rightIndicator: 'smi',
             leftIndicator: 'adx',
             leftAxisWidth: CHART_DEFAULTS.INDICATOR_AXIS_WIDTH,
-            timeAxisHeight: CHART_DEFAULTS.TIME_AXIS_HEIGHT,
+            timeAxisHeight: 0,
         });
         subChartRef.current = sub;
         sub.setupMouseEvents();
@@ -228,24 +243,30 @@ const Chart = () => {
                     Símbolo
                     <select
                         value={pairSymbol}
-                        onChange={(e) => {
-                            setPairSymbol(e.target.value);
-                            setChartSetting('symbol', e.target.value);
-                        }}
+                        onChange={(e) => handleSelectSymbol(e.target.value)}
                     >
                         {CHART_SYMBOLS.map((s) => (
                             <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
                 </label>
+                <div className="chart-toolbar-intervals">
+                    {INTERVAL_SHORTCUTS.map((iv) => (
+                        <button
+                            key={iv}
+                            type="button"
+                            className={chartInterval === iv ? 'is-active' : ''}
+                            onClick={() => handleIntervalChange(iv)}
+                        >
+                            {iv}
+                        </button>
+                    ))}
+                </div>
                 <label>
                     Intervalo
                     <select
                         value={chartInterval}
-                        onChange={(e) => {
-                            setIntervalValue(e.target.value);
-                            setChartSetting('interval', e.target.value);
-                        }}
+                        onChange={(e) => handleIntervalChange(e.target.value)}
                     >
                         {CHART_INTERVALS.map((i) => (
                             <option key={i} value={i}>{i}</option>
@@ -253,36 +274,40 @@ const Chart = () => {
                     </select>
                 </label>
             </div>
-            <div
-                ref={containerRef}
-                className="chart-main"
-                style={{ height: `calc(100dvh - ${subHeightVh}vh - ${rsiHeightVh}vh - 8px)` }}
-            >
-                <canvas ref={canvasRef} className="chart-canvas" />
-            </div>
-            <div
-                className="chart-resize-handle"
-                onMouseDown={(e) => { e.preventDefault(); draggingSubRef.current = true; }}
-                onTouchStart={(e) => { e.preventDefault(); draggingSubRef.current = true; }}
-            />
-            <div
-                ref={subContainerRef}
-                className="chart-sub"
-                style={{ height: `${subHeightVh}vh` }}
-            >
-                <canvas ref={subCanvasRef} className="chart-canvas" />
-            </div>
-            <div
-                className="chart-resize-handle"
-                onMouseDown={(e) => { e.preventDefault(); draggingRsiRef.current = true; }}
-                onTouchStart={(e) => { e.preventDefault(); draggingRsiRef.current = true; }}
-            />
-            <div
-                ref={rsiContainerRef}
-                className="chart-sub"
-                style={{ height: `${rsiHeightVh}vh` }}
-            >
-                <canvas ref={rsiCanvasRef} className="chart-canvas" />
+            <div className="chart-body">
+                <div className="chart-column">
+                    <div
+                        ref={containerRef}
+                        className="chart-main"
+                    >
+                        <canvas ref={canvasRef} className="chart-canvas" />
+                    </div>
+                    <div
+                        className="chart-resize-handle"
+                        onMouseDown={(e) => { e.preventDefault(); draggingSubRef.current = true; }}
+                        onTouchStart={(e) => { e.preventDefault(); draggingSubRef.current = true; }}
+                    />
+                    <div
+                        ref={subContainerRef}
+                        className="chart-sub"
+                        style={{ height: `${subHeightVh}vh` }}
+                    >
+                        <canvas ref={subCanvasRef} className="chart-canvas" />
+                    </div>
+                    <div
+                        className="chart-resize-handle"
+                        onMouseDown={(e) => { e.preventDefault(); draggingRsiRef.current = true; }}
+                        onTouchStart={(e) => { e.preventDefault(); draggingRsiRef.current = true; }}
+                    />
+                    <div
+                        ref={rsiContainerRef}
+                        className="chart-sub"
+                        style={{ height: `${rsiHeightVh}vh` }}
+                    >
+                        <canvas ref={rsiCanvasRef} className="chart-canvas" />
+                    </div>
+                </div>
+                <PriceSidebar onSelectSymbol={handleSelectSymbol} currentSymbol={pairSymbol} />
             </div>
         </div>
     );
